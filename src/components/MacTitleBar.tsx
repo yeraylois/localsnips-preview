@@ -48,7 +48,7 @@ export default function MacTitleBar() {
       {/* CLOSE BUTTON (ALWAYS RED X) */}
       <button 
         onClick={() => send('close')}
-        className="w-3 h-3 rounded-full bg-[#FF5F57] border border-[#E0443E] flex items-center justify-center group/btn focus:outline-none active:scale-90 transition-transform"
+        className="tooltip-surface w-3 h-3 rounded-full bg-[#FF5F57] border border-[#E0443E] flex items-center justify-center group/btn focus:outline-none active:scale-90 transition-transform"
         data-tooltip="Close"
       >
          <svg viewBox="0 0 10 10" className="w-[6px] h-[6px] text-black/80 opacity-0 group-hover/btn:opacity-100 transition-opacity" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -59,7 +59,7 @@ export default function MacTitleBar() {
       {/* YELLOW BUTTON - MINIMIZE OR DISABLED */}
       <button 
         onClick={() => !isFullscreen && send('minimize')}
-        className={`w-3 h-3 rounded-full border flex items-center justify-center group/btn focus:outline-none active:scale-90 transition-all ${
+        className={`tooltip-surface w-3 h-3 rounded-full border flex items-center justify-center group/btn focus:outline-none active:scale-90 transition-all ${
             isFullscreen 
             ? "bg-[#3D3D3D] border-[#2A2A2A] cursor-not-allowed"
             : "bg-[#FFBD2E] border-[#DEA123] cursor-pointer"
@@ -77,7 +77,7 @@ export default function MacTitleBar() {
       {/* GREEN BUTTON - TOGGLE FULLSCREEN */}
       <button 
         onClick={() => send('maximize')} 
-        className="w-3 h-3 rounded-full bg-[#28C840] border border-[#1AAB29] flex items-center justify-center group/btn cursor-pointer focus:outline-none active:scale-90 transition-transform"
+        className="tooltip-surface w-3 h-3 rounded-full bg-[#28C840] border border-[#1AAB29] flex items-center justify-center group/btn cursor-pointer focus:outline-none active:scale-90 transition-transform"
         data-tooltip={isFullscreen ? "Exit Full Screen" : "Enter Full Screen"}
       >
           {isFullscreen ? (

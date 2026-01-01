@@ -17,7 +17,7 @@ export const TECH_ICONS: Record<string, { slug: string; color: string }> = {
   "python": { slug: "python", color: "#3776AB" },
   "javascript": { slug: "javascript", color: "#F7DF1E" },
   "typescript": { slug: "typescript", color: "#3178C6" },
-  "java": { slug: "openjdk", color: "#E01F3B" }, // Java icon often removed, use OpenJDK
+  "java": { slug: "openjdk", color: "#E01F3B" }, // JAVA ICON OFTEN REMOVED, USE OPENJDK
   "go": { slug: "go", color: "#00ADD8" },
   "golang": { slug: "go", color: "#00ADD8" },
   "rust": { slug: "rust", color: "#000000" },
@@ -242,7 +242,7 @@ export const TECH_ICONS: Record<string, { slug: string; color: string }> = {
   "json": { slug: "json", color: "#fff" },
 };
 
-// Fallback icon categories for unknown technologies
+// FALLBACK ICON CATEGORIES FOR UNKNOWN TECHNOLOGIES
 export const FALLBACK_ICONS = [
   { slug: "code", label: "Code" },
   { slug: "file", label: "File" },
@@ -252,12 +252,12 @@ export const FALLBACK_ICONS = [
 
 /**
  * BUILDS CDN URL FOR SIMPLE ICONS WITH OPTIONAL BRAND COLOR.
- * - Parameter slug: Simple Icons slug name
- * - Parameter color: Optional hex color (with or without #)
- * - Returns: CDN URL string for the icon
+ * @param slug SIMPLE ICONS SLUG NAME
+ * @param color OPTIONAL HEX COLOR (WITH OR WITHOUT #)
+ * @returns CDN URL STRING FOR THE ICON
  */
 export const getTechIconUrl = (slug: string, color?: string) => {
-  // Simple Icons CDN with optional color
+  // SIMPLE ICONS CDN WITH OPTIONAL COLOR
   if (color) {
     const hex = color.replace('#', '');
     return `https://cdn.simpleicons.org/${slug}/${hex}`;
@@ -268,9 +268,9 @@ export const getTechIconUrl = (slug: string, color?: string) => {
 /**
  * DETECTS TECHNOLOGY FROM COLLECTION PATH OR TAGS.
  * SEARCHES FOR EXACT AND PARTIAL MATCHES IN TECH_ICONS DATABASE.
- * - Parameter collection: Collection path (e.g., "Languages/Python")
- * - Parameter tags: Array of tags to search
- * - Returns: Technology info with name, slug, and color, or null
+ * @param collection COLLECTION PATH (E.G., "LANGUAGES/PYTHON")
+ * @param tags ARRAY OF TAGS TO SEARCH
+ * @returns TECHNOLOGY INFO WITH NAME, SLUG, AND COLOR, OR NULL
  */
 export const detectTechnology = (
   collection?: string | null,
@@ -280,28 +280,28 @@ export const detectTechnology = (
   
   const searchTerms: string[] = [];
   
-  // Add collection parts
+  // ADD COLLECTION PARTS
   if (collection) {
     collection.split('/').forEach(part => {
       searchTerms.push(part.toLowerCase().trim());
     });
   }
   
-  // Add tags
+  // ADD TAGS
   if (tags) {
     tags.forEach(tag => {
       searchTerms.push(tag.toLowerCase().trim());
     });
   }
   
-  // Search for matching technology
+  // SEARCH FOR MATCHING TECHNOLOGY
   for (const term of searchTerms) {
-    // Exact match first
+    // EXACT MATCH FIRST
     if (TECH_ICONS[term]) {
       return { name: term, ...TECH_ICONS[term] };
     }
     
-    // Partial match
+    // PARTIAL MATCH
     for (const [tech, data] of Object.entries(TECH_ICONS)) {
       if (term.includes(tech) || tech.includes(term)) {
         return { name: tech, ...data };

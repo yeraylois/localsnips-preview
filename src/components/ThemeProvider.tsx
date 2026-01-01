@@ -8,7 +8,8 @@
 
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useLayoutEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 export type Theme = "light" | "dark" | "system" | "custom";
 
@@ -37,7 +38,7 @@ interface ThemeContextType {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   customTheme: CustomThemeState;
-  setCustomTheme: (s: CustomThemeState) => void;
+  setCustomTheme: React.Dispatch<React.SetStateAction<CustomThemeState>>;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -46,11 +47,27 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
  * PROVIDES THEME STATE AND COLOR LOGIC TO THE APP.
  * HANDLES SYSTEM/LIGHT/DARK MODES AND CUSTOM COLOR PALETTES.
  * INJECTS CSS VARIABLES FOR DYNAMIC STYLING.
- * - Parameter children: App content
+ * @param children APP CONTENT
  */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("system");
-  const [customTheme, setCustomTheme] = useState<CustomThemeState>({
+  const pathname = usePathname();
+  
+  // USE LAZY INITIALIZER TO READ FROM LOCALSTORAGE IMMEDIATELY (SSR-SAFE)
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem("localsnips-theme") as Theme) || "system";
+    }
+    return "system";
+  });
+  
+  // WRAPPER THAT SAVES TO LOCALSTORAGE IMMEDIATELY (RESTORED FOR THEME MODE)
+  const setTheme = (newTheme: Theme) => {
+    localStorage.setItem("localsnips-theme", newTheme);
+    setThemeState(newTheme);
+  };
+  
+  // USE LAZY INITIALIZER FOR CUSTOM THEME (SSR-SAFE)
+  const defaultCustomTheme: CustomThemeState = {
       darkBg: "#1d1d1d",
       brandHue: 142,  // Apple Green
       brandSat: 70,
@@ -66,23 +83,31 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       
       surfaceHue: 210,
       surfaceSat: 40,
+  };
+  
+  const [customTheme, setCustomTheme] = useState<CustomThemeState>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem("localsnips-custom-theme");
+      if (saved) {
+        try {
+          return { ...defaultCustomTheme, ...JSON.parse(saved) };
+        } catch (e) {}
+      }
+    }
+    return defaultCustomTheme;
   });
 
-  useEffect(() => {
-    const saved = localStorage.getItem("localsnips-theme") as Theme;
-    if (saved) setTheme(saved);
-    
-    const savedCustom = localStorage.getItem("localsnips-custom-theme");
-    if (savedCustom) {
-        try {
-            setCustomTheme(JSON.parse(savedCustom));
-        } catch(e) {}
-    }
-  }, []);
+  const [mounted, setMounted] = useState(false);
 
+  // INITIAL LOAD FROM LOCALSTORAGE IS NOW HANDLED BY LAZY INITIALIZERS ABOVE
+  // MOUNTED STATE IS SET IN THE USELAYOUTEFFECT BELOW
+
+  // PERSIST CUSTOM THEME WHEN IT CHANGES (RELIABLE USEEFFECT METHOD)
   useEffect(() => {
-    localStorage.setItem("localsnips-custom-theme", JSON.stringify(customTheme));
-  }, [customTheme]);
+      if (mounted) {
+          localStorage.setItem("localsnips-custom-theme", JSON.stringify(customTheme));
+      }
+  }, [customTheme, mounted]);
 
     // HELPERS FOR REAL-TIME COLOR GENERATION (APPLE-LIKE MIXING)
     // WE STICK TO SIMPLE HEX/RGB MANIPULATION TO ALLOW "0 DEPENDENCIES"
@@ -136,8 +161,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         root.style.removeProperty("--title-muted");
         root.style.removeProperty("--sidebar-opacity");
         
-        // DETERMINE MODE AND APPLY CLASS
-        root.classList.remove("light", "dark");
+        // DETERMINE MODE FIRST (DON'T REMOVE CLASSES YET TO AVOID FLASH)
+        const effectiveMode = theme === "custom" ? "dark" : 
+                              theme === "light" ? "light" : 
+                              theme === "dark" ? "dark" : 
+                              (systemDark ? "dark" : "light");
+        
+        // ADD NEW CLASS FIRST, THEN REMOVE OPPOSITE (PREVENTS FLASH)
+        root.classList.add(effectiveMode);
+        root.classList.remove(effectiveMode === "dark" ? "light" : "dark");
         
         if (theme === "custom") {
             // CUSTOM MODE: ALWAYS USE 'DARK' CLASS FOR TAILWIND COMPATIBILITY
@@ -177,6 +209,27 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             });
             root.style.setProperty("--background", surfacePalette[950]);
             root.style.setProperty("--foreground", surfacePalette[50]);
+            
+            // EXTRACT HUE/SAT FROM DARKBG FOR TOOLTIP-SURFACE CSS CLASS
+            const bgHsl = (() => {
+                const rgb = hexToRgb(customTheme.darkBg || "#1d1d1d");
+                const r = rgb[0] / 255, g = rgb[1] / 255, b = rgb[2] / 255;
+                const max = Math.max(r, g, b), min = Math.min(r, g, b);
+                let h = 0, s = 0;
+                const l = (max + min) / 2;
+                if (max !== min) {
+                    const d = max - min;
+                    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                    switch (max) {
+                        case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+                        case g: h = ((b - r) / d + 2) / 6; break;
+                        case b: h = ((r - g) / d + 4) / 6; break;
+                    }
+                }
+                return { h: Math.round(h * 360), s: Math.round(s * 100) };
+            })();
+            root.style.setProperty("--surface-h", bgHsl.h.toString());
+            root.style.setProperty("--surface-s", `${Math.max(bgHsl.s, 4)}%`); // Min 4% for subtle tint
             
             // ===========================================
             // B. ACCENT/BRAND PALETTE (FROM BRANDHUE/BRANDSAT)
@@ -249,7 +302,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             } else {
                 // DARK MODE: APPLE BLUE
                 root.style.setProperty("--brand-h", "211");
-                root.style.setProperty("--brand-s", "100%");
+                root.style.setProperty("--brand-s", "90%");
             }
 
             // INJECT SUB-TINTS FOR STANDARD MODES (OVERRIDES GLOBALS.CSS)
@@ -268,22 +321,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    // RUN ON MOUNT + STATE CHANGE
-    useEffect(() => {
+    // APPLY THEME IMMEDIATELY ON MOUNT AND ON ANY STATE CHANGE
+    // useLayoutEffect runs synchronously before browser paint
+    useLayoutEffect(() => {
         applyTheme();
-        localStorage.setItem("localsnips-theme", theme);
-        localStorage.setItem("localsnips-custom-theme", JSON.stringify(customTheme));
+        if (!mounted) setMounted(true);
     }, [theme, customTheme]);
 
     // LISTEN FOR SYSTEM CHANGES
     useEffect(() => {
+        if (!mounted) return;
         const media = window.matchMedia("(prefers-color-scheme: dark)");
         const handler = () => { applyTheme(); }; // Re-run logic on system change
         media.addEventListener("change", handler);
         return () => media.removeEventListener("change", handler);
-    }, [theme, customTheme]); 
+    }, [theme, customTheme, mounted]); 
 
-    // REAPPLY THEME ON NAVIGATION (visibility change / popstate)
+    // REAPPLY THEME ON NAVIGATION (VISIBILITY CHANGE / POPSTATE / PATHNAME)
     useEffect(() => {
         const handleVisibility = () => {
             if (document.visibilityState === 'visible') {
@@ -302,8 +356,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             window.removeEventListener('popstate', handlePopState);
         };
     }, [theme, customTheme]); 
+    
+    // FORCE RE-APPLY ON ROUTE CHANGE (NEXT.JS CLIENT NAV)
+    useLayoutEffect(() => {
+        applyTheme();
+    }, [pathname]); 
 
-    // SYNC WITH NATIVE APP (LocalSnips)
+    // SYNC WITH NATIVE APP (LOCALSNIPS)
     useEffect(() => {
         if (typeof window !== 'undefined' && (window as any).webkit?.messageHandlers?.windowControl) {
              (window as any).webkit.messageHandlers.windowControl.postMessage({

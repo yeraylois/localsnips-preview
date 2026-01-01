@@ -11,6 +11,11 @@ import { Item } from "./types";
 // =============================================================================
 // MOCK ITEMS - 20 REALISTIC SNIPPETS WITH COHERENT COUNTS
 // =============================================================================
+
+/**
+ * MOCK ITEMS - 20 REALISTIC SNIPPETS WITH COHERENT COUNTS.
+ * USED FOR DEMO PREVIEW MODE.
+ */
 export const MOCK_ITEMS: Item[] = [
   // ===== FRONTEND/REACT (4 items) =====
   {
@@ -139,7 +144,7 @@ export const MOCK_ITEMS: Item[] = [
     kind: "snippet",
     language: "typescript",
     confidence: 0.89,
-    collection: "Frontend/React",
+    collection: null, // IN INBOX - CONFLICT ITEM
     suggested_collection: "Frontend/React",
     technology: "react",
     suggested_technology: "react",
@@ -310,7 +315,7 @@ const authMiddleware = (req, res, next) => {
     kind: "snippet",
     language: "javascript",
     confidence: 0.88,
-    collection: "Backend/Node",
+    collection: null, // IN INBOX - CONFLICT ITEM
     suggested_collection: "Backend/Node",
     technology: "nodejs",
     suggested_technology: "express",
@@ -683,7 +688,7 @@ spec:
     last_error: null
   },
 
-  // ===== INBOX (1 item - no collection) =====
+  // ===== INBOX (1 ITEM - NO COLLECTION) =====
   {
     id: "20",
     created_at: "2025-12-22T13:08:33.000Z",
@@ -699,7 +704,7 @@ HAVING COUNT(o.id) > 5;`,
     kind: "snippet",
     language: "sql",
     confidence: 0.91,
-    collection: null, // IN INBOX
+    collection: "Backend/Database", // MOVED TO COLLECTION
     suggested_collection: "Backend/Database",
     technology: "postgresql",
     suggested_technology: "postgresql",
@@ -717,8 +722,13 @@ HAVING COUNT(o.id) > 5;`,
 ];
 
 // =============================================================================
-// MOCK CONFLICTS - For items with status "conflict_pending"
+// MOCK CONFLICTS - FOR ITEMS WITH STATUS "CONFLICT_PENDING"
 // =============================================================================
+
+/**
+ * MOCK CONFLICTS - FOR ITEMS WITH STATUS "CONFLICT_PENDING".
+ * USED TO DEMONSTRATE DIFF RESOLUTION UI.
+ */
 export const MOCK_CONFLICTS = {
   "4": [ // Tooltip Component
     {
@@ -754,14 +764,19 @@ export const MOCK_CONFLICTS = {
 };
 
 // =============================================================================
-// MOCK STATUS - Stack is running
+// MOCK STATUS - STACK IS RUNNING
 // =============================================================================
+
+/**
+ * MOCK SYSTEM STATUS (RUNNING STATE, QUEUE COUNTS).
+ */
 export const MOCK_STATUS = {
   state: "running",
   queue: { active: 0, waiting: 0 },
   counts: { 
-    inbox: 1,  // 1 item without collection (id: 20)
-    total: 20, // Total items
+    inbox: 2,
+    all: 20,
+    total: 20,
     trash: 0,
     active: 0
   },
@@ -773,8 +788,13 @@ export const MOCK_STATUS = {
 };
 
 // =============================================================================
-// MOCK TAGS - Computed from actual items above
+// MOCK TAGS - COMPUTED FROM ACTUAL ITEMS ABOVE
 // =============================================================================
+
+/**
+ * MOCK TAGS LIST WITH COUNTS.
+ * COMPUTED FROM MOCK ITEMS FOR FACETED FILTERING.
+ */
 export const MOCK_TAGS = [
   { text: "react", count: 4 },
   { text: "typescript", count: 5 },
@@ -794,8 +814,13 @@ export const MOCK_TAGS = [
 ];
 
 // =============================================================================
-// MOCK COLLECTIONS - Computed from actual items above
+// MOCK COLLECTIONS - COMPUTED FROM ACTUAL ITEMS ABOVE
 // =============================================================================
+
+/**
+ * MOCK COLLECTIONS TREE STRUCTURE.
+ * COMPUTED FROM MOCK ITEMS FOR NAVIGATION.
+ */
 export const MOCK_COLLECTIONS = [
   { 
     name: "Frontend", 

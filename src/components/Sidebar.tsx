@@ -8,8 +8,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
-// PREVIEW: Use mock data instead of SWR
+import { useState, useMemo, useEffect } from "react";
 import { MOCK_COLLECTIONS, MOCK_TAGS } from "../lib/mock-data";
 import { useTheme } from "./ThemeProvider";
 import { 
@@ -24,7 +23,8 @@ import {
   Network,
   Octagon
 } from "lucide-react";
-import Link from "next/link";
+
+
 import { clsx } from "clsx";
 import AlertModal from "./AlertModal";
 
@@ -37,7 +37,11 @@ type Filter =
   | { kind: "settings" }
   | { kind: "quickControls" };
 
-// SIMPLE SWR FETCHER
+/**
+ * SIMPLE FETCH WRAPPER FOR AD-HOC REQUESTS.
+ * @param url ENDPOINT URL
+ * @returns JSON PROMISE
+ */
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 // COLLECTION TREE NODE TYPE
@@ -53,9 +57,9 @@ type CollectionNode = {
  * PRIMARY NAVIGATION COMPONENT.
  * RENDERS INBOX, LIBRARY, COLLECTIONS TREE, TAGS, AND STACK CONTROLS.
  * USES SWR FOR REAL-TIME UPDATES OF COUNTS AND FACETS.
- * - Parameter status: Current system status (queue count, running state)
- * - Parameter onPickFilter: Callback to change the active view filter
- * - Parameter active: Currently selected filter
+ * @param status CURRENT SYSTEM STATUS (QUEUE COUNT, RUNNING STATE)
+ * @param onPickFilter CALLBACK TO CHANGE THE ACTIVE VIEW FILTER
+ * @param active CURRENTLY SELECTED FILTER
  */
 export default function Sidebar({
   status,
@@ -66,11 +70,11 @@ export default function Sidebar({
   onPickFilter: (f: Filter) => void;
   active: Filter;
 }) {
-  // PREVIEW: Use mock facets instead of API
   const facets = { collections: MOCK_COLLECTIONS, tags: MOCK_TAGS };
   const { theme } = useTheme();
+  const [stackOpen, setStackOpen] = useState(true);
   
-  // Transform mock collections to flat format expected by tree builder
+  // TRANSFORM MOCK COLLECTIONS TO FLAT FORMAT EXPECTED BY TREE BUILDER
   const flattenCollections = (nodes: any[]): { name: string; count: number }[] => {
     const result: { name: string; count: number }[] = [];
     const traverse = (node: any) => {
@@ -82,7 +86,7 @@ export default function Sidebar({
   };
   
   const collectionsRaw = flattenCollections(facets?.collections ?? []);
-  // Transform mock tags: { text, count } -> { name, count }
+  // TRANSFORM MOCK TAGS: { TEXT, COUNT } -> { NAME, COUNT }
   const tags = (facets?.tags ?? []).map((t: any) => ({ name: t.text, count: t.count }));
 
   // SECTION COLLAPSE STATE
@@ -138,11 +142,21 @@ export default function Sidebar({
 
   // RECURSIVE FUNCTION TO RENDER COLLECTION TREE
   const CollectionTreeItem = ({ node, level }: { node: CollectionNode, level: number }) => {
-    const [isOpen, setIsOpen] = useState(false); // COLLAPSED BY DEFAULT
     const hasChildren = node.children.length > 0;
     const isActiveNode = isActive("collection", node.fullPath);
     
-    // AUTO-EXPAND IF CHILD IS ACTIVE (OPTIONAL, SKIPPED FOR SIMPLICITY)
+    // CHECK IF ANY DESCENDANT IS ACTIVE TO AUTO-EXPAND
+    const isDescendantActive = active.kind === "collection" && 
+      active.value?.startsWith(node.fullPath + "/");
+    
+    const [isOpen, setIsOpen] = useState(isDescendantActive); // AUTO-EXPAND IF DESCENDANT IS ACTIVE
+    
+    // AUTO-EXPAND WHEN DESCENDANT BECOMES ACTIVE
+    useEffect(() => {
+      if (isDescendantActive && !isOpen) {
+        setIsOpen(true);
+      }
+    }, [isDescendantActive]);
 
     return (
       <div className="flex flex-col gap-0.5">
@@ -162,20 +176,25 @@ export default function Sidebar({
            )}
 
            <div
-            onClick={() => onPickFilter({ kind: "collection", value: node.fullPath })}
+            onClick={() => {
+              if (hasChildren) {
+                setIsOpen(!isOpen); // AUTO-EXPAND IF HAS CHILDREN
+              } else {
+                onPickFilter({ kind: "collection", value: node.fullPath }); // NAVIGATE ONLY IF LEAF
+              }
+            }}
             className={clsx(
                 "flex-1 flex items-center px-2 py-1.5 rounded-lg text-sm transition-colors text-left cursor-pointer group/item relative",
                 isActiveNode
-                  ? "bg-brand-50 text-brand-700 font-medium" 
-                  : "text-surface-600 hover:bg-surface-100 hover:text-surface-900"
+                  ? "bg-surface-100 dark:bg-surface-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm" 
+                  : "text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-brand-600 dark:hover:text-brand-400"
             )}
-            data-tooltip={node.fullPath}
           >
-            <FolderOpen className={clsx("w-3.5 h-3.5 mr-2 shrink-0", isActiveNode ? "text-brand-500" : "text-surface-400")} />
+            <FolderOpen className={clsx("w-3.5 h-3.5 mr-2 shrink-0 transition-colors", isActiveNode ? "text-brand-600 dark:text-brand-400" : "text-surface-400 group-hover/item:text-brand-600 dark:group-hover/item:text-brand-400")} />
             <span className="truncate flex-1">{node.name}</span>
             
             <button
-                className="p-1 text-surface-400 hover:text-red-500 rounded opacity-0 group-hover/item:opacity-100 transition-opacity mr-1"
+                className="tooltip-surface p-1 text-surface-400 hover:text-red-500 rounded opacity-0 group-hover/item:opacity-100 transition-opacity mr-1"
                 onClick={(e) => {
                     e.stopPropagation();
                     setAlertConfig({
@@ -193,7 +212,7 @@ export default function Sidebar({
                 <Trash2 className="w-3 h-3" />
             </button>
 
-            {badge(node.count > 0 ? node.count : undefined)} 
+            {badge(node.count > 0 ? node.count : undefined, isActiveNode)} 
           </div>
         </div>
 
@@ -215,9 +234,14 @@ export default function Sidebar({
     return true;
   }
 
-  const badge = (n?: number) =>
+  const badge = (n?: number, isActive = false) =>
     typeof n === "number" && n > 0 ? (
-      <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-surface-200 dark:bg-surface-800 text-surface-600 dark:text-surface-300 font-medium min-w-[20px] text-center">{n}</span>
+      <span className={clsx(
+        "ml-auto text-[10px] px-1.5 py-0.5 rounded-full font-medium min-w-[20px] text-center transition-colors",
+        isActive 
+          ? "bg-brand-500 text-white shadow-sm" 
+          : "bg-surface-200 dark:bg-surface-800 text-surface-600 dark:text-surface-300"
+      )}>{n}</span>
     ) : null;
 
   const NavItem = ({ 
@@ -238,13 +262,13 @@ export default function Sidebar({
       className={clsx(
         "flex items-center w-full px-2 py-1.5 rounded-lg text-sm transition-all group cursor-pointer select-none", 
         active 
-          ? "bg-white dark:bg-surface-800 shadow-sm text-surface-900 dark:text-white" 
-          : "text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-white"
+          ? "bg-surface-100 dark:bg-surface-800 shadow-sm text-brand-600 dark:text-brand-400 font-medium" 
+          : "text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-brand-600 dark:hover:text-brand-400"
       )}
     >
-      {Icon && <Icon className={clsx("w-4 h-4 mr-2 opacity-70 group-hover:opacity-100 transition-opacity", active && "opacity-100 text-brand-600 dark:text-white")} />}
+      {Icon && <Icon className={clsx("w-4 h-4 mr-2 transition-colors", active ? "text-brand-600 dark:text-brand-400" : "text-surface-400 group-hover:text-brand-600 dark:group-hover:text-brand-400")} />}
       <span className="truncate">{label}</span>
-      {badge(count)}
+      {badge(count, active)}
     </button>
   );
 
@@ -266,7 +290,7 @@ export default function Sidebar({
   });
 
   return (
-    <>
+    <div className="flex flex-col flex-1 min-h-0 w-full select-none overflow-hidden">
       <AlertModal 
         isOpen={alertConfig.isOpen}
         onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
@@ -278,168 +302,179 @@ export default function Sidebar({
         isDestructive
       />
       
-      <div className="flex flex-col gap-1 h-full select-none overflow-y-auto pr-1 custom-scrollbar">
-      
-      {/* LIBRARY SECTION */}
-      <div className="px-2 mb-4">
-        <button 
-            onClick={() => setLibraryOpen(!libraryOpen)}
-            className="flex items-center w-full px-3 py-1 text-xs font-semibold text-surface-400 uppercase tracking-widest hover:text-surface-600 transition-colors mb-1"
-            style={{ color: theme === 'custom' ? 'var(--title-color)' : undefined }}
-        >
-             {libraryOpen ? <ChevronDown className="w-3 h-3 mr-1"/> : <ChevronRight className="w-3 h-3 mr-1"/>}
-             Library
-        </button>
-        
-        {libraryOpen && (
-            <div className="flex flex-col gap-0.5 animate-fade-in pl-1">
-                <NavItem 
-                    icon={Inbox} 
-                    label="Inbox" 
-                    count={status?.counts?.inbox} 
-                    active={isActive("inbox")} 
-                    onClick={() => onPickFilter({ kind: "inbox" })} 
-                />
-                <NavItem 
-                    icon={Clock} 
-                    label="Recently Saved" 
-                    active={isActive("recent")} 
-                    onClick={() => onPickFilter({ kind: "recent" })} 
-                />
-                 <NavItem 
-                    icon={Layers} 
-                    label="All items" 
-                    count={status?.counts?.all} 
-                    active={isActive("all")} 
-                    onClick={() => onPickFilter({ kind: "all" })} 
-                />
-            </div>
-        )}
-      </div>
-
-      {/* COLLECTIONS TREE SECTION */}
-      <div className="px-2 mb-4">
-        <div className="flex items-center justify-between mb-1">
+      {/* SCROLLABLE CONTENT AREA */}
+      <div className="p-2 flex flex-col gap-1.5 flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar">
+          {/* LIBRARY SECTION */}
+          <div className="mb-2">
             <button 
-                onClick={() => setCollectionsOpen(!collectionsOpen)}
-                className="flex items-center px-3 py-1 text-xs font-semibold text-surface-400 uppercase tracking-widest hover:text-surface-600 transition-colors"
+                onClick={() => setLibraryOpen(!libraryOpen)}
+                className="flex items-center w-full px-3 py-1 text-xs font-semibold text-surface-400 uppercase tracking-widest hover:text-surface-600 hover:opacity-80 transition-all mb-1"
                 style={{ color: theme === 'custom' ? 'var(--title-color)' : undefined }}
             >
-                {collectionsOpen ? <ChevronDown className="w-3 h-3 mr-1"/> : <ChevronRight className="w-3 h-3 mr-1"/>}
-                Collections
+                {libraryOpen ? <ChevronDown className="w-3 h-3 mr-1"/> : <ChevronRight className="w-3 h-3 mr-1"/>}
+                Library
             </button>
-            <Link 
-                href="/collections/graph"
-                className="p-1 text-surface-400 hover:text-brand-500 hover:bg-brand-50 rounded transition-colors mr-2 tooltip-left"
-                data-tooltip="View Collections Graph"
-            >
-                <Network className="w-3.5 h-3.5" />
-            </Link>
-        </div>
-        
-        {collectionsOpen && (
-            <div className="mt-1 flex flex-col gap-0.5 animate-fade-in">
-            {collectionTree.map(node => (
-                <CollectionTreeItem key={node.fullPath} node={node} level={0} />
-            ))}
-            {!collectionTree.length && <div className="pl-4 py-2 text-xs text-surface-400 italic">No collections found</div>}
-            </div>
-        )}
-      </div>
-
-      {/* TAGS SECTION */}
-      <div className="px-2">
-        <button 
-            onClick={() => setTagsOpen(!tagsOpen)}
-            className="flex items-center w-full px-3 py-1 text-xs font-semibold text-surface-400 uppercase tracking-widest hover:text-surface-600 transition-colors mb-1"
-            style={{ color: theme === 'custom' ? 'var(--title-color)' : undefined }}
-        >
-            {tagsOpen ? <ChevronDown className="w-3 h-3 mr-1"/> : <ChevronRight className="w-3 h-3 mr-1"/>}
-            Tags
-        </button>
-
-        {tagsOpen && (
-            <div className="mt-1 flex flex-col gap-0.5 animate-fade-in pl-1">
-            {tags.slice(0, 40).map(t => (
-                <div
-                key={t.name}
-                onClick={() => onPickFilter({ kind: "tag", value: t.name })}
-                className={clsx(
-                    "flex items-center w-full px-2 py-1.5 rounded-lg text-sm transition-all group cursor-pointer",
-                    isActive("tag", t.name)
-                         ? "bg-white dark:bg-surface-800 shadow-sm text-surface-900 dark:text-white"
-                         : "text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-white"
-                )}
-                >
-                    <TagIcon className={clsx("w-4 h-4 mr-2 shrink-0", isActive("tag", t.name) ? "text-brand-500" : "text-surface-400")} />
-                    <span className="truncate flex-1">{t.name}</span>
-                    
-                    <button
-                        className="p-1 text-surface-400 hover:text-red-500 rounded opacity-0 group-hover:opacity-100 transition-opacity mr-1"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setAlertConfig({
-                                isOpen: true,
-                                title: "Delete Tag",
-                                description: `This tag "${t.name}" will be removed from all items.`,
-                                onConfirm: () => {
-                                    fetch(`/api/tags?name=${encodeURIComponent(t.name)}`, { method: "DELETE" })
-                                    .then(() => window.location.reload()); 
-                                }
-                            });
-                        }}
-                        data-tooltip="Delete Tag"
-                    >
-                        <Trash2 className="w-3 h-3" />
-                    </button>
-
-                    {badge(t.count)}
+            
+            {libraryOpen && (
+                <div className="flex flex-col gap-0.5 animate-fade-in pl-1">
+                    <NavItem 
+                        icon={Inbox} 
+                        label="Inbox" 
+                        count={status?.counts?.inbox} 
+                        active={isActive("inbox")} 
+                        onClick={() => onPickFilter({ kind: "inbox" })} 
+                    />
+                    <NavItem 
+                        icon={Clock} 
+                        label="Recently Saved" 
+                        active={isActive("recent")} 
+                        onClick={() => onPickFilter({ kind: "recent" })} 
+                    />
+                    <NavItem 
+                        icon={Layers} 
+                        label="All items" 
+                        count={status?.counts?.all} 
+                        active={isActive("all")} 
+                        onClick={() => onPickFilter({ kind: "all" })} 
+                    />
                 </div>
-            ))}
-            {!tags.length && <div className="pl-4 py-2 text-xs text-surface-400 italic">No tags found</div>}
+            )}
+          </div>
+
+          {/* COLLECTIONS TREE SECTION */}
+          <div className="mb-2">
+            <div className="flex items-center justify-between mb-1">
+                <button 
+                    onClick={() => setCollectionsOpen(!collectionsOpen)}
+                    className="flex items-center px-3 py-1 text-xs font-semibold text-surface-400 uppercase tracking-widest hover:text-surface-600 hover:opacity-80 transition-all"
+                    style={{ color: theme === 'custom' ? 'var(--title-color)' : undefined }}
+                >
+                    {collectionsOpen ? <ChevronDown className="w-3 h-3 mr-1"/> : <ChevronRight className="w-3 h-3 mr-1"/>}
+                    Collections
+                </button>
+                <div 
+                    onClick={() => window.location.href = "/collections/graph"}
+                    className="tooltip-surface tooltip-left p-1 text-surface-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-surface-100 dark:hover:bg-white/5 rounded transition-colors mr-2 cursor-pointer"
+                    role="button"
+                    data-tooltip="View Collections Graph"
+                >
+                    <Network className="w-3.5 h-3.5" />
+                </div>
             </div>
-        )}
+            
+            {collectionsOpen && (
+                <div className="mt-1 flex flex-col gap-0.5 animate-fade-in">
+                {collectionTree.map(node => (
+                    <CollectionTreeItem key={node.fullPath} node={node} level={0} />
+                ))}
+                {!collectionTree.length && <div className="pl-4 py-2 text-xs text-surface-400 italic">No collections found</div>}
+                </div>
+            )}
+          </div>
+
+          {/* TAGS SECTION */}
+          <div>
+            <button 
+                onClick={() => setTagsOpen(!tagsOpen)}
+                className="flex items-center w-full px-3 py-1 text-xs font-semibold text-surface-400 uppercase tracking-widest hover:text-surface-600 hover:opacity-80 transition-all mb-1"
+                style={{ color: theme === 'custom' ? 'var(--title-color)' : undefined }}
+            >
+                {tagsOpen ? <ChevronDown className="w-3 h-3 mr-1"/> : <ChevronRight className="w-3 h-3 mr-1"/>}
+                Tags
+            </button>
+
+            {tagsOpen && (
+                <div className="mt-1 flex flex-col gap-0.5 animate-fade-in pl-1">
+                {tags.slice(0, 40).map(t => (
+                    <div
+                    key={t.name}
+                    onClick={() => onPickFilter({ kind: "tag", value: t.name })}
+                    className={clsx(
+                        "flex items-center w-full px-2 py-1.5 rounded-lg text-sm transition-all group cursor-pointer",
+                        isActive("tag", t.name)
+                            ? "bg-surface-100 dark:bg-surface-800 shadow-sm text-brand-600 dark:text-brand-400 font-medium"
+                            : "text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-brand-600 dark:hover:text-brand-400"
+                    )}
+                    >
+                        <TagIcon className={clsx("w-4 h-4 mr-2 shrink-0 transition-colors", isActive("tag", t.name) ? "text-brand-600 dark:text-brand-400" : "text-surface-400 group-hover:text-brand-600 dark:group-hover:text-brand-400")} />
+                        <span className="truncate flex-1">{t.name}</span>
+                        
+                        <button
+                            className="tooltip-surface p-1 text-surface-400 hover:text-red-500 rounded opacity-0 group-hover:opacity-100 transition-opacity mr-1"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setAlertConfig({
+                                    isOpen: true,
+                                    title: "Delete Tag",
+                                    description: `This tag "${t.name}" will be removed from all items.`,
+                                    onConfirm: () => {
+                                        fetch(`/api/tags?name=${encodeURIComponent(t.name)}`, { method: "DELETE" })
+                                        .then(() => window.location.reload()); 
+                                    }
+                                });
+                            }}
+                            data-tooltip="Delete Tag"
+                        >
+                            <Trash2 className="w-3 h-3" />
+                        </button>
+
+                        {badge(t.count, isActive("tag", t.name))}
+                    </div>
+                ))}
+                {!tags.length && <div className="pl-4 py-2 text-xs text-surface-400 italic">No tags found</div>}
+                </div>
+            )}
+          </div>
       </div>
 
       {/* QUICK CONTROLS SECTION */}
-      <div className="mt-auto px-3 pb-4 pt-4">
-        <div className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-3" style={{ color: theme === 'custom' ? 'var(--title-color)' : undefined }}>
-          Stack Control
-        </div>
-        <div className="flex items-center justify-between p-3 bg-surface-100/50 dark:bg-surface-800/30 rounded-xl border border-surface-200/50 dark:border-white/5">
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${status?.state === 'running' ? 'bg-green-500 animate-pulse' : 'bg-surface-400'}`} />
-            <span className="text-xs font-medium text-surface-600 dark:text-surface-300">
-              {status?.state === 'running' ? 'Running' : 'Stopped'}
-            </span>
-          </div>
-          <button
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={status?.state !== 'running'}
-            onClick={() => setAlertConfig({
-              isOpen: true,
-              title: "Stop Stack",
-              description: "This will shut down all LocalSnips services. You can restart them from the native app.",
-              confirmText: "Stop",
-              Icon: Octagon,
-              onConfirm: () => {
-                // SEND MESSAGE TO NATIVE APP TO STOP STACK
-                const win = window as any;
-                if (win.webkit?.messageHandlers?.windowControl) {
-                  win.webkit.messageHandlers.windowControl.postMessage({ action: "stopStack" });
-                }
-              }
-            })}
-          >
-            <Octagon className="w-2.5 h-2.5" />
-            <span>Stop Stack</span>
-          </button>
-        </div>
-        <div className="mt-2 text-[10px] text-surface-400 opacity-60">
-          Queue: {(status?.counts?.active ?? 0)} processing
+      <div className="px-3 py-4 shrink-0 border-t border-surface-200/50 dark:border-white/5 bg-surface-50 dark:bg-surface-950 z-10 transition-all">
+        <button 
+            onClick={() => setStackOpen(!stackOpen)}
+            className="flex items-center gap-2 w-full text-xs font-semibold text-surface-400 uppercase tracking-wider hover:text-surface-600 hover:opacity-80 transition-all"
+            style={{ color: theme === 'custom' ? 'var(--title-color)' : undefined }}
+        >
+          <span>Stack Control</span>
+          {stackOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        </button>
+        
+        <div className={`grid transition-all duration-300 ease-in-out ${stackOpen ? "grid-rows-[1fr] opacity-100 mt-3" : "grid-rows-[0fr] opacity-0 mt-0"}`}>
+            <div className="overflow-hidden min-h-0 animate-fade-in-down">
+                <div className="flex items-center justify-between p-3 bg-surface-100/50 dark:bg-surface-800/30 rounded-xl border border-surface-200/50 dark:border-white/5">
+                <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${status?.state === 'running' ? 'bg-green-500 animate-pulse' : 'bg-surface-400'}`} />
+                    <span className="text-xs font-medium text-surface-600 dark:text-surface-300">
+                    {status?.state === 'running' ? 'Running' : 'Stopped'}
+                    </span>
+                </div>
+                <button
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 hover:!bg-red-600 hover:!text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={status?.state !== 'running'}
+                    onClick={() => setAlertConfig({
+                    isOpen: true,
+                    title: "Stop Stack",
+                    description: "This will shut down all LocalSnips services. You can restart them from the native app.",
+                    confirmText: "Stop",
+                    Icon: Octagon,
+                    onConfirm: () => {
+                        // SEND MESSAGE TO NATIVE APP TO STOP STACK
+                        const win = window as any;
+                        if (win.webkit?.messageHandlers?.windowControl) {
+                        win.webkit.messageHandlers.windowControl.postMessage({ action: "stopStack" });
+                        }
+                    }
+                    })}
+                >
+                    <Octagon className="w-2.5 h-2.5" />
+                    <span>Stop Stack</span>
+                </button>
+                </div>
+                <div className="mt-2 text-[10px] text-surface-400 opacity-60">
+                Queue: {(status?.counts?.active ?? 0)} processing
+                </div>
+            </div>
         </div>
       </div>
     </div>
-    </>
   );
 }

@@ -25,15 +25,15 @@ interface AlertModalProps {
 /**
  * DISPLAYS A MODAL DIALOG FOR CRITICAL CONFIRMATIONS.
  * RENDERS INTO DOCUMENT BODY VIA REACT PORTAL.
- * - Parameter isOpen: Visibility state
- * - Parameter onClose: Callback when dismissed
- * - Parameter onConfirm: Callback when action is confirmed
- * - Parameter title: Modal title
- * - Parameter description: Modal explanation text
- * - Parameter confirmText: Label for confirm button (default: "Delete")
- * - Parameter cancelText: Label for cancel button (default: "Cancel")
- * - Parameter isDestructive: Styles button as danger if true
- * - Parameter Icon: Icon component (default: Trash2)
+ * @param isOpen VISIBILITY STATE
+ * @param onClose CALLBACK WHEN DISMISSED
+ * @param onConfirm CALLBACK WHEN ACTION IS CONFIRMED
+ * @param title MODAL TITLE
+ * @param description MODAL EXPLANATION TEXT
+ * @param confirmText LABEL FOR CONFIRM BUTTON (DEFAULT: "DELETE")
+ * @param cancelText LABEL FOR CANCEL BUTTON (DEFAULT: "CANCEL")
+ * @param isDestructive STYLES BUTTON AS DANGER IF TRUE
+ * @param Icon ICON COMPONENT (DEFAULT: TRASH2)
  */
 export default function AlertModal({
   isOpen,
@@ -58,17 +58,17 @@ export default function AlertModal({
 
   // RENDER TO BODY (PORTAL)
   return createPortal(
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${isDark ? 'dark' : ''}`}>
-      {/* OVERLAY: Blur & Dim */}
+    <div className={`fixed inset-0 z-[70] flex items-center justify-center p-4 ${isDark ? 'dark' : ''}`}>
+      {/* OVERLAY: BLUR & DIM */}
       <div 
         className={`absolute inset-0 backdrop-blur-sm transition-opacity animate-fade-in ${isDark ? 'bg-black/60' : 'bg-black/20'}`}
         onClick={onClose}
       />
 
-      {/* MODAL: Glassmorphism Alert */}
+      {/* MODAL: GLASSMORPHISM ALERT */}
       <div className={`relative w-full max-w-sm transform overflow-hidden rounded-2xl p-6 text-left align-middle shadow-2xl backdrop-blur-xl transition-all animate-scale-in border ${isDark ? 'bg-surface-900/95 border-white/10' : 'bg-white/90 border-surface-200'} ring-1 ring-black/5`}>
         
-        {/* ICON: Floating Premium Icon */}
+        {/* ICON: FLOATING PREMIUM ICON */}
         <div className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full mb-4 ring-4 ${
             isDestructive 
                 ? (isDark ? 'bg-red-900/30 ring-red-900/10' : 'bg-red-100 ring-red-50')

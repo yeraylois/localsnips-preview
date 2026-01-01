@@ -22,9 +22,9 @@ interface TechDropdownProps {
 /**
  * DROPDOWN TRIGGER SHOWING SELECTED TECHNOLOGY ICON/NAME.
  * OPENS THE TECH SELECTOR MODAL WHEN CLICKED.
- * - Parameter value: Currently selected technology slug
- * - Parameter onChange: Callback when selection changes
- * - Parameter className: Optional extra styles
+ * @param value CURRENTLY SELECTED TECHNOLOGY SLUG
+ * @param onChange CALLBACK WHEN SELECTION CHANGES
+ * @param className OPTIONAL EXTRA STYLES
  */
 export default function TechDropdown({ value, onChange, className = "" }: TechDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -39,10 +39,12 @@ export default function TechDropdown({ value, onChange, className = "" }: TechDr
         onClick={() => setIsOpen(true)}
         className={`
           w-full px-4 py-3 rounded-xl border transition-all text-sm text-left flex items-center gap-3
-          border-surface-200 dark:border-white/10 hover:border-surface-300 dark:hover:border-white/20
+          border-transparent hover:border-brand-200 dark:hover:border-brand-500/30
+          focus:border-brand-500 dark:focus:border-brand-400 outline-none
           hover:bg-surface-100/50 dark:hover:bg-white/5
           bg-surface-50 dark:bg-white/5
           active:scale-[0.99]
+          ${isOpen ? 'border-brand-500 dark:border-brand-400' : ''}
           ${className}
         `}
       >

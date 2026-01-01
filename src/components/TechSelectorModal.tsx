@@ -71,10 +71,10 @@ interface TechSelectorModalProps {
  * MODAL INTERFACE FOR SEARCHING AND SELECTING TECHNOLOGIES.
  * SUPPORTS CUSTOM TECHNOLOGY ADDITION WITH COLOR PICKER.
  * GROUPED BY CATEGORY WITH SEARCH FILTERING.
- * - Parameter isOpen: Visibility state
- * - Parameter onClose: Callback to close
- * - Parameter value: Currently selected value
- * - Parameter onChange: Callback for selection
+ * @param isOpen VISIBILITY STATE
+ * @param onClose CALLBACK TO CLOSE
+ * @param value CURRENTLY SELECTED VALUE
+ * @param onChange CALLBACK FOR SELECTION
  */
 export default function TechSelectorModal({ isOpen, onClose, value, onChange }: TechSelectorModalProps) {
   const [search, setSearch] = useState("");
@@ -192,6 +192,9 @@ export default function TechSelectorModal({ isOpen, onClose, value, onChange }: 
     ? (isCustomDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)')
     : theme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
   
+  // ACCENT-TINTED BORDER FOR INPUTS
+  const accentBorderColor = 'var(--brand-200, rgba(99, 102, 241, 0.3))';
+  
   // AUTO-READABLE TEXT COLORS BASED ON BACKGROUND
   const textPrimary = theme === 'custom' 
     ? (isCustomDark ? '#ffffff' : '#1d1d1f')
@@ -210,6 +213,10 @@ export default function TechSelectorModal({ isOpen, onClose, value, onChange }: 
   const hoverBg = theme === 'custom'
     ? (isCustomDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)')
     : theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
+  
+  // ACCENT COLOR FOR HOVER TEXT
+  const accentColor = 'var(--brand-600, #4f46e5)';
+  const accentColorDark = 'var(--brand-400, #818cf8)';
 
   // RENDER TECH ITEM
   const renderTechItem = (tech: string, techColor: string, isCustom = false) => {
@@ -219,18 +226,34 @@ export default function TechSelectorModal({ isOpen, onClose, value, onChange }: 
       ? (isDark ? getTechIconUrl(TECH_ICONS[tech].slug, 'ffffff') : getTechIconUrl(TECH_ICONS[tech].slug))
       : null;
     const bgOpacity = isDark ? '50' : '30';
+    const textAccent = theme === 'dark' || (theme === 'custom' && isCustomDark) ? accentColorDark : accentColor;
     
     return (
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         key={tech}
-        type="button"
         onClick={() => handleSelect(tech)}
-        className="w-full px-4 py-2.5 flex items-center gap-3 text-left transition-all group"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleSelect(tech);
+          }
+        }}
+        className="w-full px-4 py-2.5 flex items-center gap-3 text-left transition-all group cursor-pointer outline-none focus:bg-surface-100 dark:focus:bg-white/5"
         style={{ 
           backgroundColor: isSelected ? `${techColor}20` : 'transparent',
         }}
-        onMouseEnter={(e) => !isSelected && (e.currentTarget.style.backgroundColor = hoverBg)}
-        onMouseLeave={(e) => !isSelected && (e.currentTarget.style.backgroundColor = 'transparent')}
+        onMouseEnter={(e) => {
+          if (!isSelected) e.currentTarget.style.backgroundColor = hoverBg;
+          const span = e.currentTarget.querySelector('.tech-label') as HTMLElement;
+          if (span) span.style.color = textAccent;
+        }}
+        onMouseLeave={(e) => {
+          if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+          const span = e.currentTarget.querySelector('.tech-label') as HTMLElement;
+          if (span && !isSelected) span.style.color = textPrimary;
+        }}
       >
         <div 
           className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -252,7 +275,7 @@ export default function TechSelectorModal({ isOpen, onClose, value, onChange }: 
             </span>
           )}
         </div>
-        <span className="flex-1 text-sm capitalize" style={{ color: textPrimary }}>{tech}</span>
+        <span className="flex-1 text-sm capitalize tech-label transition-colors" style={{ color: isSelected ? textAccent : textPrimary }}>{tech}</span>
         {isCustom && (
           <button
             onClick={(e) => handleDeleteCustomTech(tech, e)}
@@ -263,7 +286,7 @@ export default function TechSelectorModal({ isOpen, onClose, value, onChange }: 
           </button>
         )}
         {isSelected && <Check className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--brand-500, #6366f1)' }} />}
-      </button>
+      </div>
     );
   };
 
@@ -290,13 +313,13 @@ export default function TechSelectorModal({ isOpen, onClose, value, onChange }: 
               <button
                 onClick={() => setShowAddForm(false)}
                 className="p-1.5 -ml-1 rounded-lg transition-colors"
-                style={{ color: textSecondary }}
+                style={{ color: theme === 'dark' || (theme === 'custom' && isCustomDark) ? accentColorDark : accentColor }}
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = hoverBg}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
-              <h2 className="flex-1 text-base font-semibold" style={{ color: textPrimary }}>
+              <h2 className="flex-1 text-xs font-bold uppercase tracking-widest" style={{ color: theme === 'dark' || (theme === 'custom' && isCustomDark) ? accentColorDark : accentColor }}>
                 Add Custom Technology
               </h2>
             </div>
@@ -311,10 +334,9 @@ export default function TechSelectorModal({ isOpen, onClose, value, onChange }: 
                   placeholder="e.g., MyFramework"
                   value={newTechName}
                   onChange={(e) => setNewTechName(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
+                  className="w-full px-4 py-3 rounded-xl text-base md:text-sm outline-none transition-all border border-transparent hover:border-brand-200 dark:hover:border-brand-500/30 focus:border-brand-500 dark:focus:border-brand-400"
                   style={{ 
                     backgroundColor: inputBg, 
-                    border: `1px solid ${borderColor}`,
                     color: textPrimary
                   }}
                   autoFocus
@@ -326,20 +348,17 @@ export default function TechSelectorModal({ isOpen, onClose, value, onChange }: 
                   Color
                 </label>
                 <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={newTechColor}
-                    onChange={(e) => setNewTechColor(e.target.value)}
-                    className="w-12 h-12 rounded-xl cursor-pointer border-0 bg-transparent"
+                  <div 
+                    className="w-12 h-12 rounded-lg border-2 flex-shrink-0"
+                    style={{ backgroundColor: newTechColor, borderColor: borderColor }}
                   />
                   <input
                     type="text"
                     value={newTechColor}
                     onChange={(e) => setNewTechColor(e.target.value)}
-                    className="flex-1 px-4 py-3 rounded-xl text-sm font-mono outline-none"
+                    className="flex-1 px-4 py-3 rounded-xl text-base md:text-sm font-mono outline-none border border-transparent hover:border-brand-200 dark:hover:border-brand-500/30 focus:border-brand-500 dark:focus:border-brand-400"
                     style={{ 
                       backgroundColor: inputBg, 
-                      border: `1px solid ${borderColor}`,
                       color: textPrimary
                     }}
                   />
@@ -353,7 +372,7 @@ export default function TechSelectorModal({ isOpen, onClose, value, onChange }: 
                 </label>
                 <div 
                   className="p-3 rounded-xl flex items-center gap-3"
-                  style={{ backgroundColor: cardBgLight }}
+                  style={{ backgroundColor: cardBgLight, border: `1px solid ${borderColor}` }}
                 >
                   <div 
                     className="w-8 h-8 rounded-lg flex items-center justify-center"
@@ -375,11 +394,7 @@ export default function TechSelectorModal({ isOpen, onClose, value, onChange }: 
               <button
                 onClick={handleAddCustomTech}
                 disabled={!newTechName.trim()}
-                className="w-full py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
-                style={{ 
-                  backgroundColor: 'var(--brand-500, #6366f1)',
-                  color: '#fff'
-                }}
+                className="w-full py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 shadow-sm active:scale-[0.98] bg-brand-600 dark:bg-brand-500 text-white hover:bg-brand-700 dark:hover:bg-brand-400"
               >
                 Add Technology
               </button>
@@ -396,19 +411,19 @@ export default function TechSelectorModal({ isOpen, onClose, value, onChange }: 
               <button
                 onClick={onClose}
                 className="p-1.5 -ml-1 rounded-lg transition-colors"
-                style={{ color: textSecondary }}
+                style={{ color: theme === 'dark' || (theme === 'custom' && isCustomDark) ? accentColorDark : accentColor }}
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = hoverBg}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
-              <h2 className="flex-1 text-base font-semibold" style={{ color: textPrimary }}>
+              <h2 className="flex-1 text-xs font-bold uppercase tracking-widest" style={{ color: theme === 'dark' || (theme === 'custom' && isCustomDark) ? accentColorDark : accentColor }}>
                 Select Technology
               </h2>
               <button
                 onClick={() => setShowAddForm(true)}
                 className="p-1.5 rounded-lg transition-colors"
-                style={{ color: textSecondary }}
+                style={{ color: theme === 'dark' || (theme === 'custom' && isCustomDark) ? accentColorDark : accentColor }}
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = hoverBg}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                 title="Add custom technology"
@@ -426,10 +441,9 @@ export default function TechSelectorModal({ isOpen, onClose, value, onChange }: 
                   placeholder="Search..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-lg text-sm outline-none transition-all"
+                  className="w-full pl-9 pr-3 py-2 rounded-lg text-base md:text-sm outline-none transition-all border border-transparent hover:border-brand-200 dark:hover:border-brand-500/30 focus:border-brand-500 dark:focus:border-brand-400"
                   style={{
                     backgroundColor: inputBg,
-                    border: `1px solid ${borderColor}`,
                     color: textPrimary
                   }}
                   autoFocus
@@ -443,18 +457,26 @@ export default function TechSelectorModal({ isOpen, onClose, value, onChange }: 
               <button
                 type="button"
                 onClick={() => handleSelect(null)}
-                className="w-full px-4 py-3 flex items-center gap-3 text-left transition-all"
+                className="w-full px-4 py-3 flex items-center gap-3 text-left transition-all group"
                 style={{ 
                   backgroundColor: !value ? `var(--brand-500, #6366f1)20` : 'transparent',
                   borderBottom: `1px solid ${borderColor}`
                 }}
-                onMouseEnter={(e) => !value || (e.currentTarget.style.backgroundColor = hoverBg)}
-                onMouseLeave={(e) => !value || (e.currentTarget.style.backgroundColor = 'transparent')}
+                onMouseEnter={(e) => {
+                  if (value) e.currentTarget.style.backgroundColor = hoverBg;
+                  const span = e.currentTarget.querySelector('.none-label') as HTMLElement;
+                  if (span) span.style.color = theme === 'dark' || (theme === 'custom' && isCustomDark) ? accentColorDark : accentColor;
+                }}
+                onMouseLeave={(e) => {
+                  if (value) e.currentTarget.style.backgroundColor = 'transparent';
+                  const span = e.currentTarget.querySelector('.none-label') as HTMLElement;
+                  if (span && value) span.style.color = textPrimary;
+                }}
               >
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${textSecondary}20` }}>
                   <HelpCircle className="w-4 h-4" style={{ color: textSecondary }} />
                 </div>
-                <span className="flex-1 text-sm" style={{ color: textPrimary }}>None</span>
+                <span className="flex-1 text-sm none-label transition-colors" style={{ color: !value ? (theme === 'dark' || (theme === 'custom' && isCustomDark) ? accentColorDark : accentColor) : textPrimary }}>None</span>
                 {!value && <Check className="w-4 h-4" style={{ color: 'var(--brand-500, #6366f1)' }} />}
               </button>
 
@@ -490,10 +512,10 @@ export default function TechSelectorModal({ isOpen, onClose, value, onChange }: 
 
               {filteredCategories.length === 0 && filteredCustomTechs.length === 0 && (
                 <div className="p-8 text-center" style={{ color: textSecondary }}>
-                  <p className="text-sm mb-2">No technologies found</p>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-2">No technologies found</p>
                   <button
                     onClick={() => setShowAddForm(true)}
-                    className="text-xs underline hover:no-underline"
+                    className="text-xs font-bold uppercase tracking-widest hover:opacity-80 transition-opacity"
                     style={{ color: 'var(--brand-500, #6366f1)' }}
                   >
                     Add a custom technology

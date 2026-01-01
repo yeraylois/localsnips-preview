@@ -9,14 +9,14 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { UploadCloud, FileText, X, HelpCircle, Loader2 } from "lucide-react";
+import { UploadCloud, FileText, X, HelpCircle, Loader2, Save } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useTheme } from "./ThemeProvider";
 
 /**
  * COMPONENT FOR PASTING TEXT OR DRAGGING FILES TOG CREATE ITEMS.
  * HANDLES FILE UPLOAD, TEXT INPUT, AND DUPLICATE DETECTION FEEDBACK.
- * - Parameter onCreated: Callback when an item is successfully created
+ * @param onCreated CALLBACK WHEN AN ITEM IS SUCCESSFULLY CREATED
  */
 export default function ImportBox({ onCreated }: { onCreated: (id: string) => void }) {
   const [text, setText] = useState("");
@@ -83,8 +83,7 @@ export default function ImportBox({ onCreated }: { onCreated: (id: string) => vo
       >
         <div className="flex items-center justify-between mb-3">
              <span 
-               className="text-xs font-bold text-surface-500 dark:text-surface-400 uppercase tracking-wider"
-               style={{ color: theme === 'custom' ? 'var(--title-color)' : undefined }}
+               className="text-xs font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider"
              >
                Quick Add
              </span>
@@ -99,7 +98,7 @@ export default function ImportBox({ onCreated }: { onCreated: (id: string) => vo
 
         <div className="relative">
             <textarea
-            className="w-full h-[120px] resize-none text-sm font-mono bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg p-3 outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-500 transition-all placeholder:text-surface-400 dark:text-surface-100"
+            className="w-full h-[120px] resize-none text-base md:text-sm font-mono bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-lg p-3 outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-500 transition-all placeholder:text-surface-400 dark:text-surface-100"
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Paste code snippet or notes here..."
@@ -114,15 +113,16 @@ export default function ImportBox({ onCreated }: { onCreated: (id: string) => vo
 
         <div className="mt-3 flex items-center gap-3">
           <button
-            className="flex-1 px-4 py-2 rounded-lg border border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-300 text-sm font-medium hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-surface-100 disabled:opacity-50 transition-colors shadow-sm"
+            className="flex-1 px-4 py-2 rounded-lg border border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-300 text-sm font-medium hover:bg-brand-600 hover:text-white hover:border-brand-600 dark:hover:bg-brand-500 dark:hover:text-white dark:hover:border-brand-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-surface-600 dark:disabled:hover:bg-transparent dark:disabled:hover:text-surface-300 disabled:hover:border-surface-200 dark:disabled:hover:border-surface-700 transition-all shadow-sm flex items-center justify-center gap-2 group"
             onClick={create}
             disabled={busy || !text.trim()}
           >
+            <Save className="w-4 h-4" />
             Save Note
           </button>
 
           <button
-            className="px-4 py-2 rounded-lg border border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-300 text-sm font-medium hover:bg-surface-50 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-surface-100 disabled:opacity-50 transition-colors flex items-center gap-2"
+            className="px-4 py-2 rounded-lg border border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-300 text-sm font-medium hover:bg-brand-600 hover:text-white hover:border-brand-600 dark:hover:bg-brand-500 dark:hover:text-white dark:hover:border-brand-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-surface-600 dark:disabled:hover:bg-transparent dark:disabled:hover:text-surface-300 disabled:hover:border-surface-200 dark:disabled:hover:border-surface-700 transition-all flex items-center gap-2 group"
             onClick={() => {
                 if (fileRef.current) {
                     fileRef.current.value = ""; 
@@ -160,55 +160,50 @@ export default function ImportBox({ onCreated }: { onCreated: (id: string) => vo
         document.body
       )}
       {showHelp && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in p-4">
-            <div className="bg-white/80 dark:bg-[#121212]/90 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-[400px] overflow-hidden relative border border-surface-200/50 dark:border-white/10 animate-scale-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-surface-900/60 dark:bg-black/70 backdrop-blur-md animate-fade-in p-4">
+            <div className="bg-surface-50/80 dark:bg-surface-950/90 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-[400px] overflow-hidden relative border border-surface-200/50 dark:border-white/10 animate-scale-in">
                 <button 
                     onClick={() => setShowHelp(false)}
-                    className="absolute top-3.5 right-3.5 p-1 rounded-full bg-surface-100 dark:bg-white/10 text-surface-400 hover:text-surface-900 dark:hover:text-surface-100 transition-colors"
+                    className="absolute top-3.5 right-3.5 p-1.5 rounded-lg text-brand-600 dark:text-brand-400 hover:bg-brand-500 hover:!text-white transition-colors"
                 >
                     <X className="w-4 h-4" />
                 </button>
                 
-                <div className="pt-8 pb-4 px-8 flex flex-col items-center text-center">
-                    <div className="w-14 h-14 rounded-2xl bg-brand-50 dark:bg-surface-800 flex items-center justify-center text-brand-600 dark:text-surface-100 shadow-sm mb-5 border border-transparent dark:border-white/10">
-                        <FileText className="w-7 h-7" />
+                <div className="pt-8 pb-6 px-8">
+                    <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0 text-brand-600 dark:text-brand-400">
+                            <FileText className="w-7 h-7" />
+                        </div>
+                        <div className="text-left">
+                            <h3 className="text-lg font-semibold text-brand-600 dark:text-brand-400 tracking-tight">Importing Files</h3>
+                            <p className="text-sm text-surface-500 dark:text-surface-400 mt-1 leading-relaxed">
+                                Drag and drop files to instantly load content. Original files are never modified.
+                            </p>
+                        </div>
                     </div>
-                    <h3 className="text-xl font-semibold text-surface-900 dark:text-surface-50 tracking-tight">Importing Files</h3>
-                    <p className="text-sm text-surface-500 dark:text-surface-400 mt-2 leading-relaxed">
-                        Drag and drop files to instantly load content. <br/>Original files are never modified.
-                    </p>
                 </div>
                 
                 <div className="px-6 pb-6 space-y-3">
                     <div className="grid grid-cols-1 gap-3">
-                        <div className="p-3.5 rounded-xl border border-surface-200/60 dark:border-surface-700/60 bg-surface-50/50 dark:bg-surface-800/30 flex items-start gap-3">
-                             <div className="mt-0.5 p-1 bg-surface-200 dark:bg-surface-700 rounded-md">
-                                 <FileText className="w-3.5 h-3.5 text-surface-500" />
+                        <div className="p-3.5 rounded-xl border border-surface-500 dark:border-surface-400 bg-surface-50/50 dark:bg-surface-800/30 flex items-start gap-3">
+                             <div className="mt-0.5">
+                                 <FileText className="w-4 h-4 text-brand-600 dark:text-brand-400" />
                              </div>
                              <div>
-                                <span className="block text-sm font-medium text-surface-900 dark:text-surface-100">Code Files</span>
+                                <span className="block text-sm font-medium text-brand-600 dark:text-brand-400">Code Files</span>
                                 <span className="text-xs text-surface-500 dark:text-surface-400 leading-snug">.js, .py, .swift, .go, .rs, .md, .json</span>
                              </div>
                         </div>
-                        <div className="p-3.5 rounded-xl border border-surface-200/60 dark:border-surface-700/60 bg-surface-50/50 dark:bg-surface-800/30 flex items-start gap-3">
-                             <div className="mt-0.5 p-1 bg-surface-200 dark:bg-surface-700 rounded-md">
-                                 <FileText className="w-3.5 h-3.5 text-surface-500" />
+                        <div className="p-3.5 rounded-xl border border-surface-500 dark:border-surface-400 bg-surface-50/50 dark:bg-surface-800/30 flex items-start gap-3">
+                             <div className="mt-0.5">
+                                 <FileText className="w-4 h-4 text-brand-600 dark:text-brand-400" />
                              </div>
                              <div>
-                                <span className="block text-sm font-medium text-surface-900 dark:text-surface-100">Documents</span>
+                                <span className="block text-sm font-medium text-brand-600 dark:text-brand-400">Documents</span>
                                 <span className="text-xs text-surface-500 dark:text-surface-400 leading-snug">.txt, .csv, .log</span>
                              </div>
                         </div>
                     </div>
-                </div>
-                
-                <div className="p-4 bg-surface-50/50 dark:bg-surface-950/30 border-t border-surface-100 dark:border-surface-800 flex justify-center">
-                    <button 
-                        onClick={() => setShowHelp(false)}
-                        className="w-full py-2.5 bg-surface-900 dark:bg-surface-100 text-white dark:text-surface-900 rounded-xl text-sm font-semibold hover:bg-surface-800 dark:hover:bg-surface-200 transition-colors shadow-sm"
-                    >
-                        Got it
-                    </button>
                 </div>
             </div>
         </div>,

@@ -1,12 +1,20 @@
 /*************************************************************
  *   Project : LocalSnips (Preview)                          *
+ *   File    : types.ts                                       *
  *   Purpose : CORE DATA TYPES & SHARED CONSTANTS             *
  *   Author  : Yeray Lois Sanchez                             *
  *   Email   : yerayloissanchez@gmail.com                     *
  **************************************************************/
 
+/**
+ * URL PREFIX FOR ASSETS, ADJUSTS FOR PRODUCTION/DEVELOPMENT ENVS.
+ */
 export const ASSET_PREFIX = process.env.NODE_ENV === 'production' ? '/localsnips-preview' : '';
 
+/**
+ * CORE SNIPPET ITEM MODEL.
+ * REPRESENTS A SINGLE CODE SNIPPET OR NOTE WITH METADATA AND AI ANALYSIS.
+ */
 export type Item = {
   id: string;
   created_at: string;

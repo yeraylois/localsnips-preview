@@ -10,7 +10,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { marked } from "marked";
-import { Copy, RefreshCw, Trash2, ShieldAlert, CheckCircle2, Sparkles, Image as ImageIcon, FileText, Code } from "lucide-react";
+import { 
+  X, Copy, Check, Trash2, MoreHorizontal, Calendar, 
+  Tag, Folder, Hash, Share2, Maximize2, AlertCircle, 
+  RefreshCw, Terminal, Download, FileText, Sparkles, 
+  Edit3, Save, ShieldAlert, CheckCircle2, Image as ImageIcon, Code, Eye
+} from "lucide-react";
+import DOMPurify from "dompurify";
 import { Item } from "../lib/types";
 import { useTheme } from "./ThemeProvider";
 import { detectTechnology, getTechIconUrl, TECH_ICONS } from "../lib/tech-icons";
@@ -27,8 +33,8 @@ type Conflict = { candidate_id: string; similarity: number; candidate: Item };
  * MAIN VIEW FOR DISPLAYING AND EDITING A SNIPPET.
  * INCLUDES TABS FOR DOCUMENTATION, RAW CONTENT, AND METADATA EDITING.
  * ALSO MANAGES MODALS FOR CONFLICTS, SNAPSHOTS, AND DELETION.
- * - Parameter item: Current item stub (from list)
- * - Parameter onMutated: Callback to refresh parent list after changes
+ * @param item CURRENT ITEM STUB (FROM LIST)
+ * @param onMutated CALLBACK TO REFRESH PARENT LIST AFTER CHANGES
  */
 export default function ItemDetail({ item, onMutated }: { item: Item | null; onMutated: () => void }) {
   const [full, setFull] = useState<Item | null>(null);
@@ -38,8 +44,16 @@ export default function ItemDetail({ item, onMutated }: { item: Item | null; onM
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [showPoster, setShowPoster] = useState(false);
   const [showRetryAlert, setShowRetryAlert] = useState(false);
+  
+  // DOCUMENTATION EDITOR STATE
+  const [isEditingDoc, setIsEditingDoc] = useState(false);
+  const [editDocContent, setEditDocContent] = useState("");
+  const [isSavingDoc, setIsSavingDoc] = useState(false);
+  const [isPreviewingDoc, setIsPreviewingDoc] = useState(false);
+  
   const [tab, setTab] = useState<"doc" | "raw" | "meta">("doc");
-  const { theme } = useTheme();
+  const [showCopied, setShowCopied] = useState(false);
+  const { theme, customTheme } = useTheme();
   
   // DETECT TECHNOLOGY - PREFER AI SUGGESTION, FALLBACK TO CLIENT-SIDE DETECTION
   const techInfo = useMemo(() => {
@@ -61,19 +75,19 @@ export default function ItemDetail({ item, onMutated }: { item: Item | null; onM
     return detectTechnology(full.collection, full.tags);
   }, [full?.technology, full?.collection, full?.tags]);
 
-  // MOCK: USE ITEM DIRECTLY INSTEAD OF FETCHING FROM API
+  // SYNC LOCAL STATE
   useEffect(() => {
     if (!item) {
       setFull(null);
       setConflicts([]);
       return;
     }
-    // In preview mode, the item passed already has all the data
+
     setFull(item);
     
-    // Check for mock conflicts
+    // CHECK FOR MOCK CONFLICTS
     if (item.status === "conflict_pending") {
-      // Import mock conflicts
+
       import("../lib/mock-data").then(({ MOCK_CONFLICTS }) => {
         const itemConflicts = (MOCK_CONFLICTS as any)[item.id];
         if (itemConflicts) setConflicts(itemConflicts);
@@ -90,7 +104,7 @@ export default function ItemDetail({ item, onMutated }: { item: Item | null; onM
     md = md.replace(/##\s+Related\s*\n+(N\/A|None|-|)\s*(\n|$)/gi, "");
     md = md.replace(/##\s+Unknown\s*\n/gi, "");
     md = md.replace(/##\s+\w+\s*$/, "");
-    return marked.parse(md) as string; // Cast for sync usage
+    return marked.parse(md) as string; // CAST FOR SYNC USAGE
   }, [full?.doc_markdown]);
 
   if (!item) return <div className="p-8 text-sm text-surface-500 text-center">Select an item to view details.</div>;
@@ -116,7 +130,7 @@ export default function ItemDetail({ item, onMutated }: { item: Item | null; onM
   const hasConflicts = full.status === "conflict_pending";
 
   return (
-    <div className="h-full flex flex-col min-w-0 bg-white dark:bg-surface-950">
+    <div className="md:h-full flex flex-col min-w-0 bg-surface-50 dark:bg-surface-950">
       {/* HEADER */}
       <div className="border-b border-surface-200 dark:border-surface-800 px-6 py-4 bg-surface-50/30 dark:bg-surface-900/30">
         <div className="flex items-center gap-3">
@@ -145,55 +159,53 @@ export default function ItemDetail({ item, onMutated }: { item: Item | null; onM
       </div>
 
       {/* TABS + ACTIONS */}
-      <div className="px-6 border-b border-surface-200 dark:border-surface-800 flex items-center justify-between text-sm font-medium">
+      <div className="px-4 md:px-6 border-b border-surface-200 dark:border-surface-800 flex items-center justify-between text-sm font-medium">
         <div className="flex items-center gap-6">
           <button 
               onClick={() => setTab("doc")}
               className={`py-3 border-b-2 transition-colors ${tab === "doc" ? "border-brand-600 text-brand-700 dark:text-brand-400" : "border-transparent text-surface-500 hover:text-surface-700 dark:hover:text-surface-300"}`}
           >
-              Documentation
+              <span className="md:hidden">Doc</span><span className="hidden md:inline">Documentation</span>
           </button>
           <button 
               onClick={() => setTab("raw")}
               className={`py-3 border-b-2 transition-colors ${tab === "raw" ? "border-brand-600 text-brand-700 dark:text-brand-400" : "border-transparent text-surface-500 hover:text-surface-700 dark:hover:text-surface-300"}`}
           >
-              Raw Content
+              <span className="md:hidden">Raw</span><span className="hidden md:inline">Raw Content</span>
           </button>
           <button 
               onClick={() => setTab("meta")}
               className={`py-3 border-b-2 transition-colors ${tab === "meta" ? "border-brand-600 text-brand-700 dark:text-brand-400" : "border-transparent text-surface-500 hover:text-surface-700 dark:hover:text-surface-300"}`}
           >
-              Metadata
+              <span className="md:hidden">Meta</span><span className="hidden md:inline">Metadata</span>
           </button>
         </div>
         
         {/* ACTIONS - MOVED TO TABS ROW */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0 ml-auto">
           {hasConflicts && (
             <button
               className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md bg-amber-100 dark:bg-amber-500/20 text-amber-900 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-500/30 font-medium transition-colors mr-2"
               onClick={() => setShowConflict(true)}
             >
               <ShieldAlert className="w-3 h-3" />
-              {conflicts.length > 0 ? "Resolve" : "Stale Conflict"}
+              <span className="hidden sm:inline">{conflicts.length > 0 ? "Resolve" : "Stale Conflict"}</span>
             </button>
           )}
           <button 
-              className="p-1.5 rounded-md text-surface-400 hover:bg-surface-100 dark:hover:bg-white/5 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" 
+              className="p-2 md:p-1.5 rounded-md text-surface-400 hover:bg-surface-100 dark:hover:bg-white/5 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" 
               onClick={() => setShowSnapshot(true)}
-              data-tooltip="Create Code Snapshot"
           >
               <ImageIcon className="w-4 h-4" />
           </button>
           <button 
-              className="p-1.5 rounded-md text-surface-400 hover:bg-surface-100 dark:hover:bg-white/5 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" 
+              className="p-2 md:p-1.5 rounded-md text-surface-400 hover:bg-surface-100 dark:hover:bg-white/5 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" 
               onClick={() => setShowPoster(true)}
-              data-tooltip="Generate Poster PDF"
           >
               <FileText className="w-4 h-4" />
           </button>
           <button 
-            className="p-1.5 rounded-md text-surface-400 hover:bg-surface-100 dark:hover:bg-white/5 hover:text-surface-900 dark:hover:text-surface-100 transition-colors" 
+            className="tooltip-surface p-2 md:p-1.5 rounded-md text-surface-400 hover:bg-surface-100 dark:hover:bg-white/5 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" 
             onClick={() => setShowRetryAlert(true)}
             data-tooltip="Re-process with AI"
           >
@@ -201,7 +213,7 @@ export default function ItemDetail({ item, onMutated }: { item: Item | null; onM
           </button>
           <div className="w-px h-4 bg-surface-200 dark:bg-white/10 mx-1"></div>
           <button 
-            className="p-1.5 rounded-md text-surface-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 transition-colors" 
+            className="tooltip-surface p-2 md:p-1.5 rounded-md text-surface-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 transition-colors" 
             onClick={deleteItem}
             data-tooltip="Delete Item"
           >
@@ -211,30 +223,96 @@ export default function ItemDetail({ item, onMutated }: { item: Item | null; onM
       </div>
 
       {/* CONTENT AREA */}
-      <div className="flex-1 overflow-auto p-8 min-w-0">
+      <div className="flex-1 md:overflow-auto p-4 md:p-8 min-w-0 pb-8">
         {tab === "doc" && (
           <div className="max-w-3xl mx-auto animate-fade-in">
             {full.doc_markdown ? (
-              <div className="bg-white dark:bg-[#1a1a1c] rounded-2xl shadow-lg dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] border border-surface-200/60 dark:border-white/5 overflow-hidden">
+              <div className="bg-white dark:bg-[#1a1a1c] rounded-2xl shadow-lg dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] border border-surface-200/60 dark:border-white/5 overflow-hidden max-h-[calc(100svh-160px)] md:max-h-none overflow-y-auto md:overflow-hidden">
                 {/* WINDOW-STYLE HEADER */}
-                <div className="px-5 py-3 bg-surface-50/80 dark:bg-[#252527] border-b border-surface-200/50 dark:border-white/5 flex items-center gap-3">
-                    <div className="flex gap-1.5">
-                        <div className="w-3 h-3 rounded-full bg-[#ff5f57]"></div>
-                        <div className="w-3 h-3 rounded-full bg-[#febc2e]"></div>
-                        <div className="w-3 h-3 rounded-full bg-[#28c840]"></div>
+                <div className="px-5 py-3 bg-surface-50/80 dark:bg-[#252527] border-b border-surface-200/50 dark:border-white/5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className="flex gap-1.5">
+                            <div className="w-3 h-3 rounded-full bg-[#ff5f57]"></div>
+                            <div className="w-3 h-3 rounded-full bg-[#febc2e]"></div>
+                            <div className="w-3 h-3 rounded-full bg-[#28c840]"></div>
+                        </div>
+                        <span className="text-xs font-medium text-surface-500 dark:text-surface-400">
+                            {isEditingDoc ? "Editing Documentation" : (full.title || "Documentation")}
+                        </span>
                     </div>
-                    <span className="text-xs font-medium text-surface-500 dark:text-surface-400 flex-1 text-center -ml-12 truncate">
-                        {full.title || "Documentation"}
-                    </span>
+
+                    <div className="flex items-center gap-2">
+                        {isEditingDoc ? (
+                            <>
+                                <button 
+                                    onClick={() => setIsPreviewingDoc(!isPreviewingDoc)}
+                                    className={`p-1.5 rounded-md transition-colors ${isPreviewingDoc ? 'bg-brand-500 text-white' : 'text-brand-600 dark:text-brand-400 hover:bg-brand-500 hover:!text-white'}`}
+                                    title="Toggle Preview"
+                                >
+                                    <Eye className="w-4 h-4" />
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        setIsEditingDoc(false);
+                                        setIsPreviewingDoc(false);
+                                    }}
+                                    className="p-1.5 rounded-md text-brand-600 dark:text-brand-400 hover:bg-brand-500 hover:!text-white transition-colors"
+                                    title="Cancel"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                                <button 
+                                    onClick={async () => {
+                                        setIsSavingDoc(true);
+                                        await patchMeta({ doc_markdown: editDocContent });
+                                        setIsSavingDoc(false);
+                                        setIsEditingDoc(false);
+                                        setIsPreviewingDoc(false);
+                                    }}
+                                    disabled={isSavingDoc}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-brand-600 dark:text-brand-400 hover:bg-brand-500 hover:!text-white transition-colors text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isSavingDoc ? <RefreshCw className="w-3 h-3 animate-spin"/> : <Save className="w-3 h-3" />}
+                                    <span>Save</span>
+                                </button>
+                            </>
+                        ) : (
+                            <button 
+                                onClick={() => {
+                                    setEditDocContent(full.doc_markdown || "");
+                                    setIsEditingDoc(true);
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-brand-600 dark:text-brand-400 hover:bg-brand-500 hover:!text-white transition-colors text-xs font-medium"
+                            >
+                                <Edit3 className="w-3.5 h-3.5" />
+                                <span>Edit</span>
+                            </button>
+                        )}
+                    </div>
                 </div>
                 
-                {/* DOCUMENTATION CONTENT */}
-                <div className="p-6 md:p-8 bg-white dark:bg-[#1a1a1c]">
-                  <div 
-                    className="prose prose-sm dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-surface-900 dark:prose-headings:text-white prose-p:leading-relaxed prose-p:text-surface-700 dark:prose-p:text-surface-300 prose-a:text-brand-500 dark:prose-a:text-brand-400 hover:prose-a:underline prose-strong:text-surface-900 dark:prose-strong:text-white prose-code:text-brand-600 dark:prose-code:text-brand-400 prose-code:text-xs prose-code:font-medium prose-pre:bg-[#0d0d0d] prose-pre:text-surface-200 prose-pre:text-xs prose-pre:rounded-xl prose-pre:border prose-pre:border-white/5 prose-li:my-1 prose-li:text-surface-700 dark:prose-li:text-surface-300 prose-ul:my-2 prose-ol:my-2 prose-hr:border-surface-200 dark:prose-hr:border-white/10 prose-blockquote:border-brand-500 prose-blockquote:text-surface-600 dark:prose-blockquote:text-surface-400 max-w-none"
-                    dangerouslySetInnerHTML={{ __html: html }} 
-                  />
-                </div>
+                {/* DOCUMENTATION CONTENT OR EDITOR */}
+                {isEditingDoc && !isPreviewingDoc ? (
+                    <div className="relative h-[calc(100vh-220px)] md:h-[600px] bg-surface-50 dark:bg-[#1a1a1c]">
+                        <textarea
+                            value={editDocContent}
+                            onChange={(e) => setEditDocContent(e.target.value)}
+                            className="w-full h-full p-6 md:p-8 bg-transparent text-sm font-mono text-surface-800 dark:text-surface-200 outline-none resize-none leading-relaxed"
+                            placeholder="# Write your documentation here..."
+                            spellCheck={false}
+                        />
+                         <div className="absolute bottom-4 right-6 text-[10px] text-surface-400 pointer-events-none">
+                            Markdown Supported
+                        </div>
+                    </div>
+                ) : (
+                    <div className="p-6 md:p-8 bg-white dark:bg-[#1a1a1c]">
+                        <div 
+                            className="prose prose-sm dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-surface-900 dark:prose-headings:text-white prose-p:leading-relaxed prose-p:text-surface-700 dark:prose-p:text-surface-300 prose-a:text-brand-500 dark:prose-a:text-brand-400 hover:prose-a:underline prose-strong:text-surface-900 dark:prose-strong:text-white prose-code:text-brand-600 dark:prose-code:text-brand-400 prose-code:text-xs prose-code:font-medium prose-pre:bg-[#0d0d0d] prose-pre:text-surface-200 prose-pre:text-xs prose-pre:rounded-xl prose-pre:border prose-pre:border-white/5 prose-li:my-1 prose-li:text-surface-700 dark:prose-li:text-surface-300 prose-ul:my-2 prose-ol:my-2 prose-hr:border-surface-200 dark:prose-hr:border-white/10 prose-blockquote:border-brand-500 prose-blockquote:text-surface-600 dark:prose-blockquote:text-surface-400 max-w-none"
+                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(isEditingDoc ? marked.parse(editDocContent) as string : html) }} 
+                        />
+                    </div>
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center p-12 text-surface-400 border-2 border-dashed border-surface-200 dark:border-surface-700 rounded-2xl bg-surface-50/50 dark:bg-surface-900/30">
@@ -248,7 +326,7 @@ export default function ItemDetail({ item, onMutated }: { item: Item | null; onM
 
         {tab === "raw" && (
           <div className="max-w-4xl mx-auto animate-fade-in">
-            <div className="bg-white dark:bg-[#1a1a1c] rounded-2xl shadow-lg dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] border border-surface-200/60 dark:border-white/5 overflow-hidden">
+            <div className="bg-white dark:bg-[#1a1a1c] rounded-2xl shadow-lg dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] border border-surface-200/60 dark:border-white/5 overflow-hidden max-h-[calc(100svh-160px)] md:max-h-none overflow-y-auto md:overflow-hidden">
               {/* WINDOW-STYLE HEADER */}
               <div className="px-5 py-3 bg-surface-50/80 dark:bg-[#252527] border-b border-surface-200/50 dark:border-white/5 flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -261,12 +339,121 @@ export default function ItemDetail({ item, onMutated }: { item: Item | null; onM
                           Raw Content
                       </span>
                   </div>
-                  <button
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-100 dark:bg-white/5 hover:bg-surface-200 dark:hover:bg-white/10 text-surface-600 dark:text-surface-300 text-xs font-medium transition-colors"
-                      onClick={async () => { await navigator.clipboard.writeText(full.raw_content); }}
-                  >
-                      <Copy className="w-3 h-3"/> Copy
-                  </button>
+                  
+                  {/* COPY BUTTON WITH TOOLTIP */}
+                  <div className="relative">
+                      <button
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-brand-600 dark:text-brand-400 hover:bg-brand-500 hover:!text-white text-xs font-medium transition-all active:scale-95"
+                          onClick={async () => {
+                              const text = full.raw_content;
+                              // TRY CLIPBOARD API FIRST
+                              if (navigator.clipboard && navigator.clipboard.writeText) {
+                                  try {
+                                      await navigator.clipboard.writeText(text);
+                                      setShowCopied(true);
+                                      setTimeout(() => setShowCopied(false), 1800);
+                                      return;
+                                  } catch (e) {
+                                      console.warn("Clipboard API failed, trying fallback", e);
+                                  }
+                              }
+                              
+                              // FALLBACK FOR IOS/INSECURE CONTEXTS
+                              try {
+                                  const textArea = document.createElement("textarea");
+                                  textArea.value = text;
+                                  textArea.style.position = "fixed";
+                                  textArea.style.left = "-9999px";
+                                  textArea.style.top = "0";
+                                  textArea.setAttribute("readonly", "");
+                                  document.body.appendChild(textArea);
+                                  
+                                  const range = document.createRange();
+                                  range.selectNodeContents(textArea);
+                                  const selection = window.getSelection();
+                                  if (selection) {
+                                      selection.removeAllRanges();
+                                      selection.addRange(range);
+                                      textArea.setSelectionRange(0, 999999);
+                                  }
+                                  
+                                  document.execCommand("copy");
+                                  document.body.removeChild(textArea);
+                                  
+                                  setShowCopied(true);
+                                  setTimeout(() => setShowCopied(false), 1800);
+                              } catch (err) {
+                                  console.error("Copy failed", err);
+                              }
+                          }}
+                      >
+                          {showCopied ? (
+                              <Check className="w-3 h-3 text-[var(--brand-500)]" />
+                          ) : (
+                              <Copy className="w-3 h-3"/>
+                          )}
+                          {showCopied ? 'Copied!' : 'Copy'}
+                      </button>
+                      
+                      {/* APPLE-STYLE TOOLTIP - APPEARS BELOW BUTTON */}
+                      <div 
+                          className={`
+                              absolute top-full right-0 mt-2 z-50
+                              pointer-events-none
+                              transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+                              ${showCopied 
+                                  ? 'opacity-100 translate-y-0 scale-100' 
+                                  : 'opacity-0 -translate-y-1 scale-95'
+                              }
+                          `}
+                      >
+                          <div 
+                              className="
+                                  flex items-center gap-2 px-3 py-2 rounded-xl
+                                  shadow-lg backdrop-blur-xl
+                                  border
+                              "
+                              style={{
+                                  backgroundColor: theme === 'custom' && customTheme?.darkBg
+                                      ? `${customTheme.darkBg}F2`
+                                      : 'var(--surface-900, #18181b)',
+                                  borderColor: theme === 'custom' && customTheme?.brandHue !== undefined
+                                      ? `hsl(${customTheme.brandHue}, ${customTheme.brandSat}%, 45%)`
+                                      : 'var(--brand-500, #10b981)',
+                                  boxShadow: theme === 'custom' && customTheme?.brandHue !== undefined
+                                      ? `0 4px 20px hsla(${customTheme.brandHue}, ${customTheme.brandSat}%, 40%, 0.25)`
+                                      : '0 4px 20px rgba(16, 185, 129, 0.2)',
+                              }}
+                          >
+                              <div 
+                                  className="w-5 h-5 rounded-full flex items-center justify-center"
+                                  style={{
+                                      backgroundColor: theme === 'custom' && customTheme?.brandHue !== undefined
+                                          ? `hsl(${customTheme.brandHue}, ${customTheme.brandSat}%, 50%)`
+                                          : 'var(--brand-500, #10b981)',
+                                  }}
+                              >
+                                  <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                              </div>
+                              <span className="text-xs font-medium text-white whitespace-nowrap">
+                                  Copied to clipboard
+                              </span>
+                          </div>
+                          
+                          {/* TOOLTIP ARROW */}
+                          <div 
+                              className="absolute -top-1 right-4 w-2 h-2 rotate-45 border-l border-t"
+                              style={{
+                                  backgroundColor: theme === 'custom' && customTheme?.darkBg
+                                      ? `${customTheme.darkBg}F2`
+                                      : 'var(--surface-900, #18181b)',
+                                  borderColor: theme === 'custom' && customTheme?.brandHue !== undefined
+                                      ? `hsl(${customTheme.brandHue}, ${customTheme.brandSat}%, 45%)`
+                                      : 'var(--brand-500, #10b981)',
+                              }}
+                          />
+                      </div>
+                  </div>
               </div>
               
               {/* RAW CONTENT */}
@@ -365,7 +552,7 @@ function MetaEditor({
   const [title, setTitle] = useState(item.title ?? "");
   const [isSaved, setIsSaved] = useState(false);
 
-  // COMPUTED STYLE FOR AI SUGGEST BUtTONS - SYNCS WITH ACCENT COLOR IN ALL MODES
+  // COMPUTED STYLE FOR AI SUGGEST BUTTONS - SYNCS WITH ACCENT COLOR IN ALL MODES
   const aiSuggestStyle: React.CSSProperties = {
     backgroundColor: 'color-mix(in srgb, var(--brand-500) 15%, transparent)',
     color: 'var(--brand-600)'
@@ -417,7 +604,7 @@ function MetaEditor({
   }
 
   return (
-    <div className="max-w-xl mx-auto animate-fade-in">
+    <div className="max-w-xl mx-auto animate-fade-in max-h-[calc(100svh-280px)] md:max-h-none overflow-y-auto md:overflow-visible">
       <div className="bg-white dark:bg-[#1a1a1c] rounded-2xl shadow-lg dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] border border-surface-200/60 dark:border-white/5 overflow-hidden">
         {/* WINDOW-STYLE HEADER */}
         <div className="px-5 py-3 bg-surface-50/80 dark:bg-[#252527] border-b border-surface-200/50 dark:border-white/5 flex items-center gap-3">
@@ -436,7 +623,7 @@ function MetaEditor({
           <div className="space-y-2">
               <label className="text-xs font-semibold text-surface-600 dark:text-surface-300 uppercase tracking-wider">Title</label>
               <input
-                  className="w-full px-4 py-3 rounded-xl border border-surface-200 dark:border-white/10 focus:border-brand-500 dark:focus:border-brand-400 focus:ring-2 focus:ring-brand-100 dark:focus:ring-brand-900/30 outline-none transition-all text-sm bg-surface-50 dark:bg-white/5 text-surface-900 dark:text-white placeholder:text-surface-400 dark:placeholder:text-surface-500"
+                  className="w-full px-4 py-3 rounded-xl border border-transparent hover:border-brand-200 dark:hover:border-brand-500/30 focus:border-brand-500 dark:focus:border-brand-400 outline-none transition-all text-base md:text-sm bg-surface-50 dark:bg-white/5 text-surface-900 dark:text-white placeholder:text-surface-400 dark:placeholder:text-surface-500"
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   placeholder="Give this snippet a name..."
@@ -449,9 +636,7 @@ function MetaEditor({
                    {hasSuggestion && !collection && (
                        <button 
                           onClick={applySuggestion}
-                          className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-colors bg-brand-500/10 dark:bg-brand-500/20 hover:bg-brand-500/20 dark:hover:bg-brand-500/30 text-brand-600 dark:text-brand-400"
-                          style={aiSuggestStyle}
-                          data-tooltip={`AI Suggestion: ${suggestedCollection}`}
+                          className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-colors text-brand-600 dark:text-brand-400 hover:bg-brand-500 hover:!text-white"
                        >
                            <Sparkles className="w-3 h-3" />
                            AI Suggest: <strong>{suggestedCollection}</strong>
@@ -460,7 +645,7 @@ function MetaEditor({
               </div>
               <div className="relative">
                   <input
-                      className="w-full px-4 py-3 rounded-xl border border-surface-200 dark:border-white/10 focus:border-brand-500 dark:focus:border-brand-400 focus:ring-2 focus:ring-brand-100 dark:focus:ring-brand-900/30 outline-none transition-all text-sm bg-surface-50 dark:bg-white/5 text-surface-900 dark:text-white placeholder:text-surface-400 dark:placeholder:text-surface-500"
+                      className="w-full px-4 py-3 rounded-xl border border-transparent hover:border-brand-200 dark:hover:border-brand-500/30 focus:border-brand-500 dark:focus:border-brand-400 outline-none transition-all text-base md:text-sm bg-surface-50 dark:bg-white/5 text-surface-900 dark:text-white placeholder:text-surface-400 dark:placeholder:text-surface-500"
                       value={collection}
                       onChange={e => setCollection(e.target.value)}
                       placeholder={hasSuggestion ? `Suggested: ${suggestedCollection}` : "Folder/Subfolder (e.g. Linux/Commands)"}
@@ -475,9 +660,7 @@ function MetaEditor({
                    {hasTechSuggestion && !technology && (
                        <button 
                           onClick={applyTechSuggestion}
-                          className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-colors bg-brand-500/10 dark:bg-brand-500/20 hover:bg-brand-500/20 dark:hover:bg-brand-500/30 text-brand-600 dark:text-brand-400"
-                          style={aiSuggestStyle}
-                          data-tooltip={`AI Suggestion: ${suggestedTechnology}`}
+                          className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-colors text-brand-600 dark:text-brand-400 hover:bg-brand-500 hover:!text-white"
                        >
                            <Sparkles className="w-3 h-3" />
                            AI Suggest: <strong className="capitalize">{suggestedTechnology}</strong>
@@ -498,7 +681,7 @@ function MetaEditor({
           <div className="space-y-2">
               <label className="text-xs font-semibold text-surface-600 dark:text-surface-300 uppercase tracking-wider">Tags</label>
               <input
-                  className="w-full px-4 py-3 rounded-xl border border-surface-200 dark:border-white/10 focus:border-brand-500 dark:focus:border-brand-400 focus:ring-2 focus:ring-brand-100 dark:focus:ring-brand-900/30 outline-none transition-all text-sm bg-surface-50 dark:bg-white/5 text-surface-900 dark:text-white placeholder:text-surface-400 dark:placeholder:text-surface-500"
+                  className="w-full px-4 py-3 rounded-xl border border-transparent hover:border-brand-200 dark:hover:border-brand-500/30 focus:border-brand-500 dark:focus:border-brand-400 outline-none transition-all text-base md:text-sm bg-surface-50 dark:bg-white/5 text-surface-900 dark:text-white placeholder:text-surface-400 dark:placeholder:text-surface-500"
                   value={tags}
                   onChange={e => setTags(e.target.value)}
                   placeholder="comma, separated, values"
@@ -526,7 +709,7 @@ function MetaEditor({
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm active:scale-[0.98] ${
                 isSaved 
                   ? 'bg-brand-500 text-white' 
-                  : 'bg-surface-900 dark:bg-white text-white dark:text-surface-900 hover:bg-surface-800 dark:hover:bg-surface-100'
+                  : 'bg-brand-600 dark:bg-brand-500 text-white hover:bg-brand-700 dark:hover:bg-brand-400'
               }`}
               onClick={save}
               disabled={isSaved}

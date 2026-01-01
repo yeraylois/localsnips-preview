@@ -1,5 +1,5 @@
 /*************************************************************
- *   Project : LocalSnips                                     *
+ *   Project : LocalSnips (Preview)                          *
  *   File    : page.tsx                                       *
  *   Purpose : NEURAL GRAPH VISUALIZATION OF SNIPPET DATA     *
  *   Author  : Yeray Lois Sanchez                             *
@@ -10,17 +10,20 @@
 
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 
-// PREVIEW: Import mock data instead of SWR
 import { MOCK_ITEMS } from "../../../lib/mock-data";
 
+import { Suspense } from "react";
 import dynamic from "next/dynamic";
-import { ChevronLeft, Filter, Layers, Search, RotateCcw, MousePointer2, Code, FileCode, Folder } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useTheme } from "../../../components/ThemeProvider";
-import { detectTechnology, getTechIconUrl, TECH_ICONS } from "../../../lib/tech-icons";
+import { ChevronLeft, Filter, Layers, Search, RotateCcw, MousePointer2, Code, FileCode, Folder, Network, CircleDot, GitBranch, Boxes, LayoutGrid, Loader2 } from "lucide-react";
 
-// DYNAMIC IMPORT FOR FORCEGRAPH2D
+
+import { useRouter, useSearchParams } from "next/navigation";
+import { useTheme } from "../../../components/ThemeProvider";
+
+import { useMediaQuery } from "../../../hooks/use-media-query";
+import { detectTechnology, getTechIconUrl, TECH_ICONS } from "../../../lib/tech-icons";
+import { calculateTreeLayout } from "./layout-engine";
+
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
   ssr: false,
   loading: () => <div className="flex items-center justify-center h-full text-surface-400 font-mono text-sm">Initializing Neural Map...</div>
@@ -33,8 +36,7 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
  * VISUALIZES RELATIONSHIPS BETWEEN SNIPPETS IN A "NEURAL MAP".
  * SUPPORTS DRILL-DOWN, SEARCH, AND DOUBLE-CLICK NAVIGATION.
  */
-export default function CollectionsGraphPage() {
-  // PREVIEW: Use mock items instead of API
+function GraphContent() {
   const items = MOCK_ITEMS;
   const router = useRouter();
   const { theme, customTheme } = useTheme();
@@ -44,11 +46,29 @@ export default function CollectionsGraphPage() {
   const [mounted, setMounted] = useState(false);
   const fgRef = useRef<any>(null);
   
-  // STATE MANAGEMENT
+  type ViewMode = "neural" | "horizontal" | "tree" | "bottomup";
+  const searchParams = useSearchParams();
   const [selectedRoot, setSelectedRoot] = useState<string>("ALL");
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+      const mode = searchParams.get("viewMode");
+      if (mode && ["neural", "horizontal", "tree", "bottomup"].includes(mode)) {
+          return mode as ViewMode;
+      }
+      return "neural";
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [hoverNode, setHoverNode] = useState<any>(null);
   
+  // MENU AUTO-HIDE
+  const [menuExpanded, setMenuExpanded] = useState(true);
+  
+  // AUTO-COLLAPSE MENU ON MODE CHANGE (ALWAYS COLLAPSE INITIALLY TO SHOW MORE GRAPH)
+  useEffect(() => {
+      setMenuExpanded(false);
+  }, [viewMode]);
+
+  const isMobile = useMediaQuery("(max-width: 768px)");
+
   // ICON IMAGE CACHE
   const iconCache = useRef<Map<string, HTMLImageElement>>(new Map());
   const [iconsLoaded, setIconsLoaded] = useState(false);
@@ -268,18 +288,46 @@ export default function CollectionsGraphPage() {
         }
     });
 
+    // APPLY CUSTOM LAYOUT IF NOT NEURAL
+    const nodesArray = Array.from(nodes.values());
+    
+    if (viewMode !== 'neural') {
+        const layout = calculateTreeLayout(
+            nodesArray, 
+            links, 
+            rootId, 
+            viewMode,
+            dimensions.width,
+            dimensions.height
+        );
+        
+        nodesArray.forEach(node => {
+            const pos = layout.get(node.id);
+            if (pos) {
+                node.fx = pos.x;
+                node.fy = pos.y;
+            }
+        });
+    }
+
     setGraphData({
-      nodes: Array.from(nodes.values()),
+      nodes: nodesArray,
       links
     });
+    
+    // RE-CENTER ON VIEW CHANGE
+    if (fgRef.current) {
+        setTimeout(() => fgRef.current.zoomToFit(400), 500);
+    }
 
-  }, [items, selectedRoot, searchQuery, theme, customTheme]);
+  }, [items, selectedRoot, searchQuery, theme, customTheme, viewMode, dimensions]);
 
-  const isDark = theme === "dark" || (theme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches) || (theme === "custom" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const isDark = theme === "dark" || (theme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches) || theme === "custom";
   
-  // CUSTOM BACKGROUND LOGIC
+  // CUSTOM BACKGROUND LOGIC - SYNC WITH WINDOW TINT
   let bgColor = isDark ? "#09090b" : "#ffffff";
-  if (theme === 'custom' && isDark && customTheme.darkBg) {
+  if (theme === 'custom' && customTheme.darkBg) {
+      // CUSTOM MODE: ALWAYS USE THE WINDOW TINT (DARKBG) AS BACKGROUND
       bgColor = customTheme.darkBg;
   }
 
@@ -299,6 +347,9 @@ export default function CollectionsGraphPage() {
              setSelectedRoot(node.fullPath);
           } else if (node.type === "root") {
              setSelectedRoot("ALL");
+          } else if (node.type === "item" && isMobile) {
+             // MOBILE: NAVIGATE ON DOUBLE TAP
+             router.push(`/?filter=collection&value=${encodeURIComponent(node.collection)}&selectedId=${node.realId}&from=graph&viewMode=${viewMode}`);
           }
           // RESET
           lastClick.current = { id: "", time: 0 };
@@ -306,89 +357,142 @@ export default function CollectionsGraphPage() {
           // SINGLE CLICK ACTION
           lastClick.current = { id: node.id, time: now };
           
-          if (node.type === "item") {
+          if (node.type === "item" && !isMobile) {
+               // DESKTOP: NAVIGATE ON SINGLE CLICK
                router.push(`/?filter=collection&value=${encodeURIComponent(node.collection)}&selectedId=${node.realId}`);
           } else {
-               // FOCUS CAMERA
+               // FOCUS CAMERA (GROUPS/ROOT OR MOBILE ITEM SINGLE TAP)
                if (fgRef.current) {
                    fgRef.current.centerAt(node.x, node.y, 1000);
                    fgRef.current.zoom(4, 1000);
                }
           }
       }
-  }, [router, selectedRoot]);
+  }, [router, selectedRoot, isMobile, viewMode]);
 
   if (!mounted) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden font-sans" style={{ backgroundColor: bgColor }}>
         
-        {/* TOP BAR */}
-        <div className="absolute top-0 left-0 right-0 z-50 p-6 pointer-events-none flex justify-center"> 
-            <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-full shadow-2xl border border-zinc-200 dark:border-zinc-800 flex items-center p-2 gap-4 pointer-events-auto min-w-[600px] max-w-4xl transition-all hover:scale-[1.01]">
+        {/* TOP BAR - APPLE STYLE AUTO-HIDE */}
+        <div 
+             className="absolute top-0 left-0 right-0 z-50 flex justify-center transition-all duration-300 pointer-events-none"
+             onMouseEnter={() => setMenuExpanded(true)}
+             onMouseLeave={() => setMenuExpanded(false)}
+        > 
+            {/* HOVER TRIGGER AREA (ALSO CLICKABLE FOR MOBILE) */}
+            <div 
+                className="absolute top-0 w-full h-16 pointer-events-auto z-40 bg-transparent"
+                onClick={() => setMenuExpanded(true)}
+            ></div>
+
+            <div 
+                className={`flex flex-col md:flex-row items-stretch md:items-center p-2 gap-2 md:gap-3 pointer-events-auto w-[calc(100%-2rem)] md:w-auto md:min-w-[500px] max-w-3xl transition-all duration-500 ease-spring ${isMobile ? '' : 'hover:shadow-2xl hover:border-brand-500 dark:hover:border-brand-400'} 
+                ${menuExpanded ? 'translate-y-4 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}
+                bg-surface-50/80 dark:bg-surface-900/80 backdrop-blur-2xl rounded-2xl shadow-xl shadow-black/5 dark:shadow-black/30 border border-surface-200/60 dark:border-white/10 z-50`}
+            >
                 
-                 {/* 1. Back */}
-                <Link 
-                    href="/" 
-                    className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 transition-colors"
-                >
-                    <ChevronLeft className="w-5 h-5" />
-                </Link>
+                 {/* MOBILE ROW 1: CONTROLS */}
+                 <div className="flex items-center gap-1.5">
+                    {/* BACK BUTTON */}
+                    <div 
+                        onClick={() => window.location.href = "/"} 
+                        role="button"
+                        className="w-9 h-9 flex shrink-0 items-center justify-center rounded-xl bg-surface-100/60 dark:bg-white/5 hover:!bg-brand-500 dark:hover:!bg-brand-500 text-surface-500 dark:text-surface-400 hover:!text-white dark:hover:!text-white transition-all cursor-pointer"
+                    >
+                        <ChevronLeft className="w-5 h-5" />
+                    </div>
 
-                <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700 mx-1"></div>
+                    <div className="h-5 w-px bg-surface-200/80 dark:bg-white/10 mx-1.5 hidden md:block"></div>
 
-                {/* 2. Collection Navigator */}
-                <div className="flex items-center gap-3 flex-1">
-                     <div className="relative group flex-1">
+                    {/* COLLECTION NAVIGATOR */}
+                    <div className="relative group flex-1 bg-surface-100/50 dark:bg-white/5 rounded-xl border border-transparent hover:!bg-brand-500 dark:hover:!bg-brand-500 transition-all">
                         <select 
-                             value={selectedRoot}
-                             onChange={(e) => setSelectedRoot(e.target.value)}
-                             className="w-full appearance-none bg-transparent border-none text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:ring-0 cursor-pointer outline-none pr-8 truncate text-center"
-                             style={{ textAlignLast: 'center' }}
+                                value={selectedRoot}
+                                onChange={(e) => setSelectedRoot(e.target.value)}
+                                className="w-full h-9 appearance-none bg-transparent border-none text-sm font-medium text-surface-600 dark:text-surface-300 group-hover:!text-white focus:ring-0 cursor-pointer outline-none pr-8 pl-3 md:pl-3 md:text-left truncate transition-colors"
                         >
-                            <option value="ALL">Universe (All Collections)</option>
+                            <option value="ALL">Universe</option>
                             {availableRoots.length > 0 && <hr />}
                             {availableRoots.map(root => (
                                 <option key={root} value={root}>{root}</option>
                             ))}
                         </select>
-                        <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none text-zinc-400">
-                             <Filter className="w-3 h-3" />
-                         </div>
-                     </div>
+                        <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none text-surface-400 group-hover:!text-white transition-colors">
+                            <Filter className="w-3.5 h-3.5" />
+                        </div>
+                    </div>
+                
+                    {/* RESET BUTTON (IF DRILLED DOWN) */}
+                    {selectedRoot !== "ALL" && (
+                        <button 
+                                onClick={() => setSelectedRoot("ALL")}
+                                className="tooltip-surface p-2 shrink-0 rounded-xl bg-surface-100/60 dark:bg-white/5 hover:bg-surface-200/80 dark:hover:bg-white/10 text-surface-400 hover:text-brand-600 dark:hover:text-brand-400 transition-all"
+                                data-tooltip="Reset View"
+                        >
+                            <RotateCcw className="w-4 h-4" />
+                        </button>
+                    )}
+                 </div>
+
+                {/* VIEW MODE SELECTOR */}
+                {/* MOBILE SEPARATOR */}
+                <div className="h-px w-full bg-surface-200/80 dark:bg-white/10 md:hidden order-3"></div>
+                
+                <div className="flex w-full md:w-auto justify-evenly md:justify-start items-center gap-1 px-2 order-3 md:order-none py-2 md:py-0">
+                    <div className="h-5 w-px bg-surface-200/80 dark:bg-white/10 mr-1 hidden md:block"></div>
+                    {([
+                        { mode: "neural" as const, icon: Network, label: "Neural" },
+                        { mode: "horizontal" as const, icon: Layers, label: "Horizontal Flow" },
+                        { mode: "tree" as const, icon: GitBranch, label: "Hierarchical" },
+                        { mode: "bottomup" as const, icon: Boxes, label: "Bottom-Up" },
+                    ]).map(({ mode, icon: Icon, label }) => (
+                        <button
+                            key={mode}
+                            onClick={() => setViewMode(mode)}
+                            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all cursor-pointer ${
+                                viewMode === mode
+                                    ? "bg-brand-500 text-white shadow-md"
+                                    : "bg-surface-100/60 dark:bg-white/5 hover:!bg-brand-500 text-surface-500 dark:text-surface-400 hover:!text-white"
+                            }`}
+                            data-tooltip={label}
+                        >
+                            <Icon className="w-4 h-4" />
+                        </button>
+                    ))}
                 </div>
 
-                <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700 mx-1"></div>
+                <div className="h-px w-full md:h-5 md:w-px bg-surface-200/80 dark:bg-white/10 mx-1 md:hidden"></div>
 
-                {/* 3. Search */}
-                <div className="relative w-64">
+                {/* SEARCH */}
+                <div className="relative w-full md:w-52">
                     <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                        <Search className="w-4 h-4 text-zinc-400" />
+                        <Search className="w-3.5 h-3.5 text-surface-400" />
                     </div>
                     <input 
                         type="text" 
                         placeholder="Search..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-zinc-100 dark:bg-zinc-950 border-none rounded-full pl-10 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-400 dark:focus:ring-zinc-600 placeholder-zinc-400 dark:placeholder-zinc-600 text-zinc-900 dark:text-zinc-100 transition-all"
+                        className="w-full bg-surface-100/50 dark:bg-white/5 border border-transparent hover:bg-surface-200/50 dark:hover:bg-white/10 rounded-xl pl-9 pr-4 py-2 text-sm outline-none ring-0 focus:border-brand-500 dark:focus:border-brand-400 focus:bg-white dark:focus:bg-black/20 placeholder-surface-400 dark:placeholder-surface-500 text-surface-800 dark:text-surface-100 transition-all"
                     />
                 </div>
-                
-                {/* 4. Reset Button (if drilled down) */}
-                {selectedRoot !== "ALL" && (
-                    <button 
-                         onClick={() => setSelectedRoot("ALL")}
-                         className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors"
-                         data-tooltip="Reset View"
-                    >
-                        <RotateCcw className="w-4 h-4" />
-                    </button>
-                )}
             </div>
+
+            {/* MINIMIZED PILL (VISIBLE WHEN MENU IS HIDDEN) */}
+            {!menuExpanded && (
+                <div 
+                    className="absolute top-4 cursor-pointer bg-surface-50/80 dark:bg-surface-900/80 backdrop-blur-md px-4 py-1.5 rounded-full border border-surface-200/60 dark:border-white/10 shadow-lg text-xs font-semibold text-surface-500 pointer-events-auto animate-in fade-in slide-in-from-top-4 duration-500 hover:text-brand-500 hover:border-brand-500/30 transition-colors"
+                    onClick={() => setMenuExpanded(true)}
+                >
+                    Menu
+                </div>
+            )}
         </div>
 
         {/* INSTRUCTION HINT */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 pointer-events-none text-xs font-medium text-zinc-400 dark:text-zinc-600 uppercase tracking-widest opacity-60">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 pointer-events-none text-xs font-medium text-surface-400 dark:text-surface-600 uppercase tracking-widest opacity-60">
              <span className="flex items-center gap-2"><MousePointer2 className="w-3 h-3" /> Double Click to Drill Down</span>
         </div>
 
@@ -400,13 +504,15 @@ export default function CollectionsGraphPage() {
             graphData={graphData}
             backgroundColor={bgColor}
             
-            // PHYSICS TWEAKS FOR "NOT STUCK TOGETHER"
-            d3AlphaDecay={0.01}             // SLOWER DECAY = MORE MOVEMENT TO FIND SETTLING
-            d3VelocityDecay={0.2}           // LESS FRICTION
-            cooldownTicks={200}
+            // PHYSICS TWEAKS (NEURAL MODE ONLY: OTHERWISE FROZEN)
+            d3AlphaDecay={viewMode === "neural" ? 0.01 : 1}
+            d3VelocityDecay={viewMode === "neural" ? 0.2 : 1}
+            cooldownTicks={viewMode === "neural" ? 200 : 0}
             
             // FORCES
-            onEngineStop={() => fgRef.current?.zoomToFit(400)}
+            onEngineStop={() => {
+                // MANUAL LAYOUT HANDLES POSITIONING
+            }}
             
             // NODE RENDERING
             nodeLabel="name"
@@ -430,7 +536,7 @@ export default function CollectionsGraphPage() {
                 if (isHover) {
                     ctx.beginPath();
                     ctx.arc(node.x, node.y, r + 4, 0, 2 * Math.PI, false);
-                    ctx.fillStyle = node.color + '30'; // 30% opacity
+                    ctx.fillStyle = node.color + '30'; // 30% OPACITY
                     ctx.fill();
                 }
                 
@@ -467,7 +573,7 @@ export default function CollectionsGraphPage() {
                 
                 // TECH ICON RENDERING
                 if (hasTech && node.tech.slug) {
-                    const iconUrl = getTechIconUrl(node.tech.slug, 'ffffff'); // White icon
+                    const iconUrl = getTechIconUrl(node.tech.slug, 'ffffff'); // WHITE ICON
                     const cacheKey = iconUrl;
                     
                     if (!iconCache.current.has(cacheKey)) {
@@ -477,10 +583,10 @@ export default function CollectionsGraphPage() {
                         img.src = iconUrl;
                         img.onload = () => {
                             iconCache.current.set(cacheKey, img);
-                            // Force re-render by updating state
+                            // FORCE RE-RENDER BY UPDATING STATE
                             setIconsLoaded(prev => !prev);
                         };
-                        iconCache.current.set(cacheKey, img); // Set immediately to prevent duplicate loads
+                        iconCache.current.set(cacheKey, img); // SET IMMEDIATELY TO PREVENT DUPLICATE LOADS
                     } else {
                         const img = iconCache.current.get(cacheKey);
                         if (img && img.complete && img.naturalWidth) {
@@ -496,7 +602,7 @@ export default function CollectionsGraphPage() {
                         }
                     }
                 } else if (node.type !== "item") {
-                    // FALLBACK: Draw simple inner circle for non-tech groups
+                    // FALLBACK: DRAW SIMPLE INNER CIRCLE FOR NON-TECH GROUPS
                     ctx.beginPath();
                     ctx.arc(node.x, node.y, r * 0.4, 0, 2 * Math.PI, false);
                     ctx.fillStyle = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)';
@@ -544,6 +650,19 @@ export default function CollectionsGraphPage() {
         
         
     </div>
+  );
+}
+
+export default function CollectionsGraphPage() {
+  return (
+    <Suspense fallback={
+        <div className="flex h-screen w-full items-center justify-center bg-surface-50 dark:bg-surface-950 text-surface-400">
+            <Loader2 className="w-8 h-8 animate-spin text-brand-500 opacity-80" />
+            <span className="ml-3 text-sm font-medium tracking-widest uppercase">Loading Neural Map...</span>
+        </div>
+    }>
+        <GraphContent />
+    </Suspense>
   );
 }
 
