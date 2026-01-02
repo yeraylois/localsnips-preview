@@ -45,3 +45,6 @@ yarn-error.log*
 # TYPESCRIPT
 *.tsbuildinfo
 next-env.d.ts
+
+# LOCAL DOCS (AI DEPLOYMENT GUIDE)
+DEPLOYMENT.md
