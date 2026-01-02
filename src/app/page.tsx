@@ -80,7 +80,7 @@ const THEMES = [
   }}
 ];
 
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 /**
  * MAIN DASHBOARD PAGE COMPONENT.
@@ -105,6 +105,7 @@ function HomeContent() {
   const themeHook = useTheme();
   const { theme } = useTheme();
   const searchParams = useSearchParams();
+  const router = useRouter();
   
   
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -472,7 +473,7 @@ function HomeContent() {
                         onClick={() => { 
                           if (searchParams.get("from") === "graph") {
                               const viewMode = searchParams.get("viewMode");
-                              window.location.href = `/collections/graph${viewMode ? `?viewMode=${viewMode}` : ''}`;
+                              router.push(`/collections/graph${viewMode ? `?viewMode=${viewMode}` : ''}`);
                               return;
                           }
                           if (filter.kind === 'settings') {
@@ -651,7 +652,7 @@ function HomeContent() {
 
                         <div
                             role="button"
-                            onClick={() => window.location.href = "/service-manager"}
+                            onClick={() => router.push("/service-manager")}
                             className="flex items-center w-full px-2 py-1.5 rounded-lg text-sm text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-white transition-all group cursor-pointer"
                         >
                              <div className="w-6 h-6 rounded-md flex items-center justify-center mr-2 bg-brand-50 dark:bg-surface-800 text-brand-600 dark:text-surface-100 border border-black/5 dark:border-white/10">
