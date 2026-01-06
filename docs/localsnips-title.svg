@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="104" viewBox="0 0 900 180">
+  <defs>
+    <filter id="brushEdge" x="-20%" y="-80%" width="140%" height="260%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="10" xChannelSelector="R" yChannelSelector="G"/>
+      <feGaussianBlur stdDeviation="0.9"/>
+    </filter>
+
+    <filter id="softInk" x="-25%" y="-25%" width="150%" height="150%">
+      <feGaussianBlur stdDeviation="0.7" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="tipGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="1.6" result="g"/>
+      <feMerge>
+        <feMergeNode in="g"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <mask id="paintMask">
+      <rect width="900" height="180" fill="black"/>
+      <g filter="url(#brushEdge)">
+        <rect x="0" y="24" width="0" height="132" rx="56" ry="56" fill="white">
+          <animate attributeName="width" from="0" to="900" dur="1.65s" fill="freeze"/>
+        </rect>
+      </g>
+    </mask>
+  </defs>
+
+  <g mask="url(#paintMask)">
+    <text x="50%" y="58%" text-anchor="middle" dominant-baseline="middle"
+          font-family="Avenir Next, Avenir, Helvetica Neue, Helvetica, Arial, system-ui, -apple-system"
+          font-size="96" font-weight="500" letter-spacing="0.2"
+          fill="#9CA3AF">
+      LocalSn&#305;ps
+    </text>
+  </g>
+
+  <circle cx="569" cy="60" r="8" fill="#9CA3AF" opacity="0">
+    <style>
+      circle { transform-box: fill-box; transform-origin: center; }
+    </style>
+    
+    <animate attributeName="opacity" from="0" to="1" begin="1.8s" dur="0.01s" fill="freeze"/>
+
+    <animateTransform attributeName="transform" type="scale"
+      values="0; 1.5; 0.9; 1" 
+      keyTimes="0; 0.4; 0.7; 1"
+      begin="1.8s" dur="0.5s" fill="freeze"
+      calcMode="spline" 
+      keySplines="0.215 0.61 0.355 1; 0.215 0.61 0.355 1; 0.215 0.61 0.355 1"/>
+  </circle>
+
+  <circle cx="0" cy="90" r="6.2" fill="rgba(156,163,175,0.85)" filter="url(#tipGlow)" opacity="0">
+    <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.08;0.92;1" dur="1.65s" fill="freeze"/>
+    <animate attributeName="cx" from="0" to="900" dur="1.65s" fill="freeze"/>
+  </circle>
+</svg>
